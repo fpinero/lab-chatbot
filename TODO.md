@@ -2,18 +2,12 @@
 
 Only pending work belongs here. Each milestone starts after the preceding milestone is verified and integrated remotely. Keep every milestone branch for at least seven days after merge, with no automatic cleanup.
 
-## M1: Protected foundation
+## External verification prerequisites
 
-- [ ] Integrate M1 with CI, PR, remote merge and branch retention evidence.
+- [ ] Install a restricted provider key privately and obtain approved request/daily/cumulative live-test budgets. Acceptance: opt-in real text/vision/comparison/media checks record sanitized status and actual cost; no mock result is reported as live evidence.
 
 ## M2: Text chat
 
-- [ ] Verify official catalog/chat schemas and implement cached catalog, stale metadata and refresh throttling. Acceptance: contract tests cover invalid models, unknown capabilities and sanitized provider failures.
-- [ ] Add transactional USD reservations, idempotency and reconciliation. Acceptance: concurrent requests respect limits; missing usage and uncertain dispatch never become zero cost.
-- [ ] Persist conversations, immutable snapshots and bounded checkpoints. Acceptance: search/rename/delete/export, retry and restart interruption preserve original evidence.
-- [ ] Implement server-owned streaming, SSE reconnect, cancellation and queue bounds. Acceptance: split frames, post-200 errors, expiry and disconnected readers are tested.
-- [ ] Build safe Markdown chat, capability-driven settings, drafts, usage, stop/retry. Acceptance: desktop/mobile browser and sanitization tests pass.
-- [ ] Run bounded opt-in live text check with restricted key and owner-approved numeric budget, or record external limitation.
 - [ ] Integrate M2 with CI, PR, remote merge and branch retention evidence.
 
 ## M3: Attachments and comparisons

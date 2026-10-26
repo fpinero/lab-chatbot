@@ -1,3 +1,4 @@
+from decimal import Decimal
 from ipaddress import ip_network
 from pathlib import Path
 from typing import Literal
@@ -15,6 +16,15 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "production"] = "development"
     app_origin: str = "http://127.0.0.1:5173"
     provider_mode: Literal["mock", "openrouter"] = "mock"
+    openrouter_api_key: SecretStr = SecretStr("")
+    openrouter_api_key_file: Path | None = None
+    max_request_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    live_test_budget_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    daily_budget_usd: Decimal = Field(default=Decimal("0"), ge=0, le=1000)
+    model_price_ceiling_per_million: Decimal = Field(default=Decimal("10"), ge=0, le=1000)
+    model_allowlist: list[str] = Field(default_factory=list)
+    max_output_tokens: int = Field(default=2048, ge=1, le=32768)
+    max_queued_runs: int = Field(default=16, ge=1, le=64)
     data_dir: Path = Path("data")
     database_url: str | None = None
     auth_mode: Literal["password", "access", "policy"] = "password"
@@ -56,6 +66,8 @@ class Settings(BaseSettings):
                 or self.auth_mode == "policy"
             ):
                 raise ValueError("Production requires HTTPS, a live provider and secure identity.")
+        if self.openrouter_api_key_file:
+            self.openrouter_api_key = SecretStr(self.openrouter_api_key_file.read_text().strip())
         if self.auth_password_hash_file:
             self.auth_password_hash = SecretStr(self.auth_password_hash_file.read_text().strip())
         if self.auth_mode == "password":

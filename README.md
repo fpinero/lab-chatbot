@@ -1,6 +1,6 @@
 # Lab chatbot
 
-A private workspace for deliberate model experiments using OpenRouter. The protected foundation includes secure sign-in, persistent owner sessions and a deterministic local preview. Chat history and live generation arrive in later milestones. No paid call or deployment is performed by the default test suite.
+A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming text chat, persistent history and transactional spend reservations. The OpenRouter text adapter is implemented; live provider verification is pending. No paid call or deployment is performed by the default test suite.
 
 ## Local development
 
@@ -68,4 +68,27 @@ npm --prefix frontend run format
 
 Keep `.env` files, private policies, local notes, credentials, conversations, exports and backups outside Git. Container packaging will use explicit source paths. Provider credentials must remain on the backend.
 
-`TODO.md` contains pending work. `avances.md` records verified work and integration. Mock checks do not establish provider or account availability. Real paid generation, packaging and deployment remain pending.
+`TODO.md` contains pending work. `avances.md` records verified work and integration. Mock checks do not establish provider or account availability. Live provider verification, packaging and deployment remain pending.
+
+## Text chat and spend controls
+
+The text workspace now supports streaming, stop, explicit repeat with a selected model, edits as new immutable runs, search/rename/delete, favorites and authenticated Markdown/JSON exports. History and sessions survive application restart. The mock catalog is visibly simulated; live models are discovered server-side from OpenRouter with ranking provenance and a 15-minute cache. Stale catalogs retain their timestamp. Unsupported parameters and unknown billing dimensions are rejected before dispatch.
+
+Live mode requires a restricted non-management key through `OPENROUTER_API_KEY_FILE` (recommended) or `OPENROUTER_API_KEY`, `PROVIDER_MODE=openrouter`, and explicitly approved positive `MAX_REQUEST_USD` and `DAILY_BUDGET_USD`. Budgets default to zero. The backend verifies the key's documented type and spend limit before generation. Keep provider-side key limits conservative as well. `MODEL_ALLOWLIST` is a JSON list; `MODEL_PRICE_CEILING_PER_MILLION` filters catalog token prices. No actual key or budget is supplied by this repository.
+
+Each new request persists an immutable input snapshot and an idempotency key before dispatch. Transactions reserve conservative input/output estimates using Decimal and integer micro-USD. Provider routing stays within the selected model and includes price ceilings. Generation POSTs are never automatically retried. Global concurrency is two, with bounded queue depth and a separate submission throttle. Provider costs can still change, so estimates and local guards are not guaranteed billing caps.
+
+Cancellation preserves partial text and may not stop billing. Missing usage, interrupted requests and uncertain outcomes keep reservations. An authenticated billing check can retrieve known generation metadata without creating another generation. Usage records remain after conversation deletion, including an idempotency tombstone so replaying a deleted request cannot spend again.
+
+## Opt-in live verification
+
+The default suite never contacts a paid provider. A separate command can perform exactly one cheap text request through the application's authenticated API:
+
+```sh
+uv run --project backend python scripts/live-text.py \
+  --model YOUR_VERIFIED_MODEL_ID --max-usd YOUR_APPROVED_REQUEST_ALLOWANCE
+```
+
+Without `--execute`, this only prints a plan after validating the configured numeric allowance. Before execution, configure the approved `LIVE_TEST_BUDGET_USD` in both the backend and test process, as well as ordinary request/daily limits. Verification runs reserve against a cumulative server-side verification allowance. Then add `--execute` explicitly. Credentials are prompted privately; Access mode can read an already obtained token from excluded `CF_ACCESS_TOKEN_FILE`. The configured `APP_ORIGIN` must reach the app, including any required edge authentication. The CLI never prints credentials, prompts or answers and writes sanitized evidence to ignored `artifacts/live-text.json`.
+
+Live text verification is currently pending because credentials and approved numeric budgets have not been supplied. Image/video generation, attachments, comparisons, container validation and deployment remain pending milestones.

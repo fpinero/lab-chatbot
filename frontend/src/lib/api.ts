@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import type { components } from "../generated/api";
 
 export type LoginInfo = components["schemas"]["LoginInfo"];
@@ -6,12 +7,15 @@ type PreviewResult = components["schemas"]["PreviewResult"];
 let csrfToken = "";
 
 export class ApiError extends Error {
-  constructor(public status: number) {
-    super("request_failed");
+  constructor(
+    public status: number,
+    message: string = copy.chatFailure,
+  ) {
+    super(message);
   }
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   method = "GET",
   body?: unknown,
@@ -25,7 +29,16 @@ async function request<T>(
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  if (!response.ok) throw new ApiError(response.status);
+  if (!response.ok) {
+    let message: string = copy.chatFailure;
+    try {
+      const body = (await response.json()) as { error?: { message?: unknown } };
+      if (typeof body.error?.message === "string") message = body.error.message;
+    } catch {
+      /* An interrupted response keeps the generic message. */
+    }
+    throw new ApiError(response.status, message);
+  }
   return response.status === 204
     ? (undefined as T)
     : (response.json() as Promise<T>);
@@ -54,3 +67,33 @@ export async function logout() {
 export function preview(prompt: string) {
   return request<PreviewResult>("/dev/preview", "POST", { prompt });
 }
+
+export type ModelInfo = components["schemas"]["ModelInfo"];
+export type CatalogInfo = components["schemas"]["CatalogInfo"];
+export type ConversationInfo = components["schemas"]["ConversationInfo"];
+export type ConversationDetail = components["schemas"]["ConversationDetail"];
+export type RunInfo = components["schemas"]["RunInfo"];
+export type RunStart = components["schemas"]["RunStart"];
+export type UsageInfo = components["schemas"]["UsageInfo"];
+export const chatApi = {
+  catalog: () => request<CatalogInfo>("/models"),
+  refreshCatalog: () => request<CatalogInfo>("/models/refresh", "POST"),
+  history: (q = "") =>
+    request<ConversationInfo[]>(`/conversations?q=${encodeURIComponent(q)}`),
+  conversation: (id: string) =>
+    request<ConversationDetail>(`/conversations/${id}`),
+  create: (title: string) =>
+    request<ConversationInfo>("/conversations", "POST", { title }),
+  rename: (id: string, title: string) =>
+    request<ConversationInfo>(`/conversations/${id}`, "PATCH", { title }),
+  remove: (id: string) =>
+    request<void>(`/conversations/${id}?confirm=true`, "DELETE"),
+  submit: (body: RunStart) => request<RunInfo>("/runs", "POST", body),
+  run: (id: string) => request<RunInfo>(`/runs/${id}`),
+  cancel: (id: string) => request<RunInfo>(`/runs/${id}/cancel`, "POST"),
+  reconcile: (id: string) => request<RunInfo>(`/runs/${id}/reconcile`, "POST"),
+  usage: () => request<UsageInfo>("/usage"),
+  favorites: () => request<{ favorites: string[] }>("/preferences"),
+  saveFavorites: (favorites: string[]) =>
+    request<{ favorites: string[] }>("/preferences", "PATCH", { favorites }),
+};

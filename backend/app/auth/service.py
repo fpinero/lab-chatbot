@@ -136,7 +136,7 @@ class AuthService:
             db.commit()
         return token, session
 
-    def authenticate(self, request: Request) -> OwnerSession:
+    def authenticate(self, request: Request, *, touch: bool = True) -> OwnerSession:
         self.verify_access(request)
         self.check_origin(request)
         token = request.cookies.get(self.settings.cookie_name, "")
@@ -155,8 +155,9 @@ class AuthService:
                     request.headers.get("x-csrf-token", "").encode(), session.csrf_token.encode()
                 ):
                     raise AuthError(403, "csrf_rejected", "Refresh your session and try again.")
-            session.last_seen = now
-            db.commit()
+            if touch:
+                session.last_seen = now
+                db.commit()
             return session
 
     def logout(self, session: OwnerSession) -> None:
