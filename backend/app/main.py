@@ -14,12 +14,16 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 from starlette.middleware.base import RequestResponseEndpoint
 
+from app.api.chat import router as chat_router
 from app.auth.service import AuthError, AuthService
 from app.body_limit import BodyLimitMiddleware
 from app.config import Settings
 from app.db import create_database, migrate
 from app.models import OwnerSession
+from app.providers.chat import ChatProvider, MockChat, OpenRouter
 from app.providers.mock import MockProvider, PreviewProvider, PreviewResult
+from app.services.catalog import CatalogService
+from app.services.runs import RunService
 
 
 class ErrorBody(BaseModel):
@@ -71,6 +75,7 @@ def create_app(
     settings: Settings | None = None,
     static_dir: Path | None = None,
     clock: Callable[[], datetime] | None = None,
+    chat_provider: ChatProvider | None = None,
 ) -> FastAPI:
     config = settings or Settings()
 
@@ -80,7 +85,20 @@ def create_app(
         try:
             migrate(engine)
             app.state.auth = AuthService(engine, config, clock or (lambda: datetime.now(UTC)))
-            yield
+            selected = chat_provider or (
+                MockChat() if config.provider_mode == "mock" else OpenRouter(config)
+            )
+
+            def now() -> int:
+                return int((clock() if clock else datetime.now(UTC)).timestamp())
+
+            app.state.catalog = CatalogService(engine, config, selected, now)
+            app.state.runs = RunService(engine, config, selected, app.state.catalog, now)
+            await app.state.runs.recover()
+            try:
+                yield
+            finally:
+                await app.state.runs.stop()
         finally:
             engine.dispose()
 
@@ -91,7 +109,8 @@ def create_app(
         openapi_url=None,
         lifespan=lifespan,
         responses={
-            status: {"model": ErrorEnvelope} for status in [401, 403, 404, 413, 422, 429, 500]
+            status: {"model": ErrorEnvelope}
+            for status in [401, 402, 403, 404, 409, 410, 413, 422, 429, 500, 503]
         },
     )
     provider: PreviewProvider = MockProvider()
@@ -234,6 +253,8 @@ def create_app(
         @app.post("/api/dev/preview", response_model=PreviewResult)
         async def preview(body: PreviewRequest) -> PreviewResult:
             return await provider.preview(body.prompt)
+
+    app.include_router(chat_router)
 
     @app.api_route(
         "/api", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"], include_in_schema=False

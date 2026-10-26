@@ -28,3 +28,73 @@ class AuthBucket(Base):
     window_start: Mapped[int] = mapped_column(Integer)
     attempts: Mapped[int] = mapped_column(Integer)
     __table_args__ = (Index("ix_auth_buckets_window", "window_start"),)
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("owners.id"), index=True)
+    head_run_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    title: Mapped[str] = mapped_column(String(160))
+    created_at: Mapped[int] = mapped_column(Integer)
+    updated_at: Mapped[int] = mapped_column(Integer, index=True)
+
+
+class Run(Base):
+    __tablename__ = "runs"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("owners.id"), index=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    model_id: Mapped[str] = mapped_column(String)
+    turn: Mapped[int] = mapped_column(Integer)
+    snapshot_json: Mapped[str] = mapped_column(String)
+    settings_json: Mapped[str] = mapped_column(String)
+    prompt: Mapped[str] = mapped_column(String)
+    output: Mapped[str] = mapped_column(String, default="")
+    status: Mapped[str] = mapped_column(String, index=True)
+    error_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    generation_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    usage_json: Mapped[str | None] = mapped_column(String, nullable=True)
+    sequence: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[int] = mapped_column(Integer)
+    started_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completed_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    first_token_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    elapsed_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class Charge(Base):
+    __tablename__ = "usage_ledger"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("owners.id"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String)
+    request_hash: Mapped[str] = mapped_column(String(64))
+    run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("runs.id", ondelete="SET NULL"), nullable=True, unique=True
+    )
+    state: Mapped[str] = mapped_column(String, index=True)
+    reserved_microusd: Mapped[int] = mapped_column(Integer)
+    actual_microusd: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    purpose: Mapped[str] = mapped_column(String, default="generation", index=True)
+    price_json: Mapped[str] = mapped_column(String)
+    created_at: Mapped[int] = mapped_column(Integer, index=True)
+    __table_args__ = (Index("ux_ledger_owner_key", "owner_id", "idempotency_key", unique=True),)
+
+
+class CatalogCache(Base):
+    __tablename__ = "model_catalog_cache"
+    family: Mapped[str] = mapped_column(String, primary_key=True)
+    catalog_json: Mapped[str] = mapped_column(String)
+    fetched_at: Mapped[int] = mapped_column(Integer)
+    last_attempt_at: Mapped[int] = mapped_column(Integer)
+
+
+class Preferences(Base):
+    __tablename__ = "preferences"
+    owner_id: Mapped[str] = mapped_column(
+        ForeignKey("owners.id", ondelete="CASCADE"), primary_key=True
+    )
+    favorites_json: Mapped[str] = mapped_column(String, default="[]")

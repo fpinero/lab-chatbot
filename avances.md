@@ -37,3 +37,24 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Frontend: formatting, TypeScript, 3 Vitest tests and production build pass. Playwright desktop/mobile flows pass sign-in, explicit mock submission, reload, navigation drawer and logout. Inspected login and workspace screenshots at 360 px; no horizontal overflow.
 - Ran 15 local excluded policy checks. Only the result count is recorded publicly.
 - Production identity selection, provider credentials, numeric spend budgets, live provider validation and infrastructure prerequisites remain pending. No paid traffic or deployment occurred.
+
+## 2026-10-26: M1 remote integration
+
+- Pull request: https://github.com/fpinero/lab-chatbot/pull/2. CI run `40410432890` completed successfully, without pending review feedback.
+- Remote merge: `2206008e1d8242b336fe337e208b1495182de979`, at `2026-10-26T22:12:44Z`. Source commit: `706584515de6488b8687c520f44156ebeda3d342`.
+- Retained local/remote branch: `feature/m1-protected-foundation`. Earliest cleanup: `2026-11-02T22:12:44Z`; deletion requires a later owner request.
+- Synchronized local main and started `feature/m2-text-chat` from the confirmed integration. Main only runs verification, without deployment.
+- Checked presence only: provider key and numeric request/daily/live-test budgets are not configured. Requested approved numeric limits without requesting secrets in chat. Local implementation continues independently.
+
+## 2026-10-26: M2 local verification
+
+- Added verified official text catalog/chat/key/metadata contracts, a fixed-origin httpx adapter, explicit popularity provenance, capability/price filtering, cached/stale catalog handling and throttled manual refresh. Public contract references are in `docs/provider-contracts.md`.
+- Added persistent conversations, immutable context snapshots, model-preserving metadata, deliberate repeat/edit runs, history search/rename/delete, favorites and authenticated JSON/Markdown exports. Deletion retains accounting and idempotency tombstones.
+- Added transactional Decimal/micro-USD reservations before dispatch, request/daily/cumulative verification allowances, bounded queue/rate limits and two global generation slots. Provider price ceilings preserve Decimal precision in outbound JSON.
+- Added server-owned streaming, bounded raw SSE framing, checkpoints, cancellation, snapshot reconnect, session revalidation without extending idle expiry, interrupted-run recovery and authenticated usage reconciliation. Management/unrestricted keys are rejected; generation POSTs are never retried automatically. Unknown billing retains its reservation.
+- Ruff check/format, mypy (18 source files), 52 pytest tests, generated API contract, frontend format/TypeScript, 3 Vitest tests and production build pass. Tests exercise real concurrent reservations, key rejection, split UTF-8/CRLF, post-200 errors, missing usage, metadata settlement and session expiry during SSE.
+- Playwright: 3 passing scenarios and 1 explicit desktop skip for the mobile-only reduced viewport. Desktop/mobile sign-in, streaming, model repeat, history after reload and logout pass. Inspected desktop, 360 px mobile and reduced-height screenshots. A reduced viewport is a keyboard-size proxy, not a physical device test.
+- Added a bounded opt-in live text command and documented its credential/budget gates. No provider key or approved numeric budgets are available, so no live or paid request ran. Live validation remains an explicit external prerequisite.
+- Container and deployment verification remain pending later milestones. M2 pull request/integration are pending.
+
+- Additional M2 gate verification: two CLI tests confirm that read-only planning cannot construct an HTTP client and that execution without an approved numeric allowance fails before network access. These pass separately from the 52-test backend run recorded above.

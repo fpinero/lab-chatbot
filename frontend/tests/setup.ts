@@ -5,3 +5,7 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+  configurable: true,
+  value: () => undefined,
+});
