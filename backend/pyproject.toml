@@ -1,0 +1,38 @@
+[project]
+name = "lab-chatbot-backend"
+version = "0.1.0"
+description = "Private model experimentation workspace"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.135,<1",
+  "httpx>=0.28,<1",
+  "pydantic-settings>=2.13,<3",
+  "uvicorn>=0.41,<1",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.19,<2",
+  "pytest>=9,<10",
+  "ruff>=0.15,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["app"]
+plugins = ["pydantic.mypy"]

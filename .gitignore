@@ -1,36 +1,38 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# Local settings and private operator policy
+*.local.md
+.env
+.env.*
+!.env.example
+*.policy.json
+private/
+.idea/
 .DS_Store
 *.pem
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-.env
-
-# vercel
-.vercel
-
-# typescript
+# Dependencies and generated files
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage*
+htmlcov/
+node_modules/
+dist/
+build/
+*.egg-info/
 *.tsbuildinfo
-next-env.d.ts
+playwright-report/
+test-results/
+
+# Runtime state, private content and backups
+data/
+backups/
+exports/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*
+*.log
+artifacts/
