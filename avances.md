@@ -19,3 +19,21 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Playwright desktop and 360 px mobile workflows both passed against real loopback servers. Inspected `artifacts/m0-desktop.png` and `artifacts/m0-mobile.png`; no horizontal overflow or clipped controls. Adjusted the mobile test to assert the visible submission workflow instead of a hidden desktop status indicator.
 - Verified private brief, environment, policy, IDE and runtime paths are ignored; reviewed Docker context exclusions. Container inspection belongs to M6 because no image exists yet.
 - Added CI verification without deployment steps. Pull request and remote integration remain pending.
+
+## 2026-10-26: M0 remote integration
+
+- Pull request: https://github.com/fpinero/lab-chatbot/pull/1. CI run `40408681075` completed successfully; no review requests or actionable feedback remained.
+- Merge confirmed remotely: `b8047322990ae2f8117d4cca58f1621493fb0dbc`, at `2026-10-26T21:59:38Z`. Source commit: `468c2b1194ab0213ebb1fe5324dcb53a2e42aad7`.
+- Retained branch locally and remotely: `feature/m0-bootstrap`. Earliest cleanup: `2026-11-02T21:59:38Z`; deletion requires a later owner request. Auto-delete remains disabled.
+- The connected GitHub app could read but not merge (integration permission 403); the authorized local GitHub CLI completed the merge without bypassing repository protections.
+- Fetched and fast-forwarded the M1 branch to the confirmed remote integration before beginning implementation. No deployment occurred.
+
+## 2026-10-26: M1 local verification
+
+- Added SQLite WAL/foreign keys/busy timeout, initial Alembic migration, stable owner identity and server-side sessions with random opaque tokens stored only as hashes. Verified session continuity across application restart.
+- Added Argon2id password authentication, optional private constrained policy loading, production configuration rejection and Cloudflare Access JWT verification with cached key rotation and explicit owner subject. No private policy values or policy-specific fixtures are tracked.
+- Added exact Origin checks, session CSRF, rotation/logout, idle/absolute expiry, persistent per-address/global login buckets, trusted proxy chain handling, bounded credential verification and actual received-body limits. API errors share a sanitized generated contract.
+- Backend: Ruff check/format, mypy (12 source files) and 28 pytest tests pass. Coverage includes private route families, forged headers, JWKS rotation, production cookie attributes, placeholder credentials, restart persistence and request size enforcement.
+- Frontend: formatting, TypeScript, 3 Vitest tests and production build pass. Playwright desktop/mobile flows pass sign-in, explicit mock submission, reload, navigation drawer and logout. Inspected login and workspace screenshots at 360 px; no horizontal overflow.
+- Ran 15 local excluded policy checks. Only the result count is recorded publicly.
+- Production identity selection, provider credentials, numeric spend budgets, live provider validation and infrastructure prerequisites remain pending. No paid traffic or deployment occurred.

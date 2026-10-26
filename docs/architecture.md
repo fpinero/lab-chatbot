@@ -1,9 +1,11 @@
 # Architecture
 
-React with strict TypeScript and Vite calls a FastAPI application under `/api`. Tailwind provides the styling foundation. FastAPI serves compiled frontend assets in the eventual single-process production topology. Unknown API requests never receive the SPA shell.
+React with strict TypeScript, Tailwind and Vite calls FastAPI under `/api`. FastAPI also serves the compiled frontend. API authentication runs before route dispatch; unknown API paths never receive the SPA shell. The generated TypeScript contract includes the common sanitized error envelope.
 
-A provider interface keeps transport code out of the browser. The bootstrap adapter is deterministic and performs no network operations. Development-only preview routes are temporary, contain no persisted private data and cannot spend credit. Production startup currently fails closed.
+SQLite uses WAL, foreign-key enforcement and a busy timeout. Alembic upgrades the schema during application startup. Stable owner identity links independently authenticated device sessions. Tokens have 256 bits of randomness; only SHA-256 token hashes are persisted. Session CSRF tokens remain tied to individual records. Origin checks cover login and authenticated writes.
 
-The next foundation milestone adds validated authentication, server-side sessions, CSRF protection, SQLite WAL persistence and Alembic migrations before enabling private data or live providers. Later milestones add durable jobs, transactional spend reservations, immutable context snapshots and bounded attachment/media storage. One application process and one replica are the initial operational target.
+Authentication uses an Argon2id owner passphrase or verified Cloudflare Access identity. JWT verification fixes RS256, checks issuer/audience/expiry/subject and uses a bounded JWKS cache that supports key rotation. Trusting an identity header alone is prohibited. Optional declarative operator policy values remain private and are never encoded as deployment constants in public source or tests.
 
-Provider keys, private operator policies and runtime files remain outside source control and static assets. The public interface must not encode the operator's selected private authentication policy.
+Authentication throttles persist in bounded five-minute buckets. A short immediate transaction reserves each attempt before expensive credential verification; password hashing concurrency is limited. Forwarded chains are considered only through configured proxy networks. Uvicorn address rewriting must remain disabled.
+
+The development mock adapter has no network operations and cannot be enabled in production. Live generation is not implemented in this milestone. Later slices introduce immutable run snapshots, transactional spend reservations, durable media jobs and bounded attachment storage. One process and one replica remain the initial target.

@@ -2,18 +2,8 @@
 
 Only pending work belongs here. Each milestone starts after the preceding milestone is verified and integrated remotely. Keep every milestone branch for at least seven days after merge, with no automatic cleanup.
 
-## M0: Bootstrap
-
-- [ ] Integrate M0 through a verified pull request. Acceptance: review diff/secrets, pass CI, confirm remote merge, append PR/commit/date/retention evidence.
-
 ## M1: Protected foundation
 
-- [ ] Add validated environment settings and generic declarative policy interface. Acceptance: production rejects insecure/placeholder authentication and mock providers.
-- [ ] Add SQLite WAL persistence, Alembic migrations and stable owner identity. Acceptance: empty-database migration and restart preserve owner data.
-- [ ] Implement hashed opaque sessions, rotation, idle/absolute expiry and logout. Acceptance: authentication lifecycle tests pass without browser credential storage.
-- [ ] Enforce CSRF, origin checks, persistent throttling and trusted proxy rules. Acceptance: cross-site login/writes and forged client headers fail.
-- [ ] Verify Cloudflare Access JWT signature, issuer, audience and expiry with cached JWKS. Acceptance: invalid identity tests pass; private policy fixtures remain excluded.
-- [ ] Build responsive authenticated shell and protect private API families. Acceptance: unauthenticated history/files/media/usage/jobs/SSE requests fail and shell works at 360 px.
 - [ ] Integrate M1 with CI, PR, remote merge and branch retention evidence.
 
 ## M2: Text chat
