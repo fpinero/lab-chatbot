@@ -6,18 +6,8 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 - [ ] Install a restricted provider key privately and obtain approved request/daily/cumulative live-test budgets. Acceptance: opt-in real text/vision/comparison/media checks record sanitized status and actual cost; no mock result is reported as live evidence.
 
-## M2: Text chat
-
-- [ ] Integrate M2 with CI, PR, remote merge and branch retention evidence.
-
 ## M3: Attachments and comparisons
 
-- [ ] Implement bounded private uploads and isolated extraction. Acceptance: real PDF/DOCX/TXT/CSV fixtures, encrypted/scanned documents, bombs, MIME mismatch, traversal and streamed byte limits are tested.
-- [ ] Forward sanitized images and extracted document text with compatibility/context checks. Acceptance: previews and warnings are accurate and no silent truncation occurs.
-- [ ] Snapshot two-to-four comparison inputs once and queue independent candidates. Acceptance: identical requests, partial failure and no cross-candidate contamination are asserted.
-- [ ] Build mobile comparison cards, explicit retry and continue-with-answer forks. Acceptance: browser tests cover reuse and independent candidate status.
-- [ ] Add reference-aware deletion and expired abandoned-upload cleanup. Acceptance: referenced/shared assets survive and expired unreferenced files are removed.
-- [ ] Run budgeted live vision/document/comparison checks when configured; record actual evidence or limitation.
 - [ ] Integrate M3 with CI, PR, remote merge and branch retention evidence.
 
 ## M4: Image generation

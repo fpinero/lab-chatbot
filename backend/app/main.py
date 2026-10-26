@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -14,7 +16,9 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 from starlette.middleware.base import RequestResponseEndpoint
 
+from app.api.attachments import router as attachment_router
 from app.api.chat import router as chat_router
+from app.api.comparisons import router as comparison_router
 from app.auth.service import AuthError, AuthService
 from app.body_limit import BodyLimitMiddleware
 from app.config import Settings
@@ -22,7 +26,9 @@ from app.db import create_database, migrate
 from app.models import OwnerSession
 from app.providers.chat import ChatProvider, MockChat, OpenRouter
 from app.providers.mock import MockProvider, PreviewProvider, PreviewResult
+from app.services.attachments import AttachmentService
 from app.services.catalog import CatalogService
+from app.services.comparisons import ComparisonService
 from app.services.runs import RunService
 
 
@@ -93,11 +99,28 @@ def create_app(
                 return int((clock() if clock else datetime.now(UTC)).timestamp())
 
             app.state.catalog = CatalogService(engine, config, selected, now)
-            app.state.runs = RunService(engine, config, selected, app.state.catalog, now)
+            app.state.attachments = AttachmentService(engine, config, now)
+            app.state.attachments.collect()
+            app.state.runs = RunService(
+                engine, config, selected, app.state.catalog, now, app.state.attachments
+            )
+            app.state.comparisons = ComparisonService(app.state.runs)
             await app.state.runs.recover()
+
+            async def maintain_attachments() -> None:
+                while True:
+                    await asyncio.sleep(3600)
+                    try:
+                        await asyncio.to_thread(app.state.attachments.collect)
+                    except Exception:
+                        logging.getLogger(__name__).warning("attachment_maintenance_failed")
+
+            maintenance = asyncio.create_task(maintain_attachments())
             try:
                 yield
             finally:
+                maintenance.cancel()
+                await asyncio.gather(maintenance, return_exceptions=True)
                 await app.state.runs.stop()
         finally:
             engine.dispose()
@@ -130,6 +153,8 @@ def create_app(
         if status == 429:
             response.headers["Retry-After"] = "300"
         return response
+
+    app.add_middleware(BodyLimitMiddleware, upload_maximum=config.max_upload_total_bytes + 262144)
 
     @app.middleware("http")
     async def protection(request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -255,6 +280,8 @@ def create_app(
             return await provider.preview(body.prompt)
 
     app.include_router(chat_router)
+    app.include_router(attachment_router)
+    app.include_router(comparison_router)
 
     @app.api_route(
         "/api", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"], include_in_schema=False
@@ -268,6 +295,14 @@ def create_app(
         raise HTTPException(status_code=404)
 
     root = (static_dir or Path(__file__).resolve().parents[2] / "frontend" / "dist").resolve()
+    for private_path in [
+        config.data_dir,
+        config.auth_policy_file,
+        config.auth_password_hash_file,
+        config.openrouter_api_key_file,
+    ]:
+        if private_path and private_path.resolve().is_relative_to(root):
+            raise ValueError("Private runtime paths must remain outside compiled static assets.")
     if (root / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=root / "assets"), name="assets")
 
@@ -277,5 +312,4 @@ def create_app(
             raise HTTPException(status_code=404)
         return FileResponse(root / "index.html")
 
-    app.add_middleware(BodyLimitMiddleware)
     return app

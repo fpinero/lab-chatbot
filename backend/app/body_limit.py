@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from starlette.formparsers import MultiPartException
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -7,12 +8,26 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 class BodyLimitMiddleware:
     """Buffer only bounded JSON bodies before framework deserialization."""
 
-    def __init__(self, app: ASGIApp, maximum: int = 65536) -> None:
+    def __init__(self, app: ASGIApp, maximum: int = 65536, upload_maximum: int = 26476544) -> None:
         self.app, self.maximum = app, maximum
+        self.upload_maximum = upload_maximum
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope.get("method") not in {"POST", "PATCH", "PUT"}:
             await self.app(scope, receive, send)
+            return
+        if scope.get("path") == "/api/attachments":
+            total = 0
+
+            async def upload_receive() -> Message:
+                nonlocal total
+                message = await receive()
+                total += len(message.get("body", b""))
+                if total > self.upload_maximum:
+                    raise MultiPartException("Upload byte ceiling exceeded.")
+                return message
+
+            await self.app(scope, upload_receive, send)
             return
         data = bytearray()
         while True:

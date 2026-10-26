@@ -20,14 +20,17 @@ export async function request<T>(
   method = "GET",
   body?: unknown,
 ): Promise<T> {
+  const multipart = body instanceof FormData;
   const response = await fetch(`/api${path}`, {
     method,
     credentials: "same-origin",
     headers: {
-      "Content-Type": "application/json",
+      ...(multipart ? {} : { "Content-Type": "application/json" }),
       ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
     },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body === undefined
+      ? {}
+      : { body: multipart ? body : JSON.stringify(body) }),
   });
   if (!response.ok) {
     let message: string = copy.chatFailure;
@@ -96,4 +99,27 @@ export const chatApi = {
   favorites: () => request<{ favorites: string[] }>("/preferences"),
   saveFavorites: (favorites: string[]) =>
     request<{ favorites: string[] }>("/preferences", "PATCH", { favorites }),
+};
+
+export type AttachmentInfo = components["schemas"]["AttachmentInfo"];
+export type UploadLimits = components["schemas"]["UploadLimits"];
+export type ComparisonInfo = components["schemas"]["ComparisonInfo"];
+export type ComparisonStart = components["schemas"]["ComparisonStart"];
+export type ComparisonSummary = components["schemas"]["ComparisonSummary"];
+export const attachmentApi = {
+  limits: () => request<UploadLimits>("/attachments/limits"),
+  upload: (files: File[]) => {
+    const body = new FormData();
+    for (const file of files) body.append("files", file);
+    return request<AttachmentInfo[]>("/attachments", "POST", body);
+  },
+};
+export const comparisonApi = {
+  start: (body: ComparisonStart) =>
+    request<ComparisonInfo>("/comparisons", "POST", body),
+  get: (id: string) => request<ComparisonInfo>(`/comparisons/${id}`),
+  history: (conversation: string) =>
+    request<ComparisonSummary[]>(`/conversations/${conversation}/comparisons`),
+  fork: (run: string) =>
+    request<ConversationDetail>(`/runs/${run}/fork`, "POST"),
 };

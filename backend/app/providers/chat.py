@@ -207,15 +207,20 @@ class MockChat:
                 "id": f"mock/{slug}",
                 "name": f"Local {slug}",
                 "context_length": 32000,
-                "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
+                "architecture": {
+                    "input_modalities": ["text", "image"],
+                    "output_modalities": ["text"],
+                },
                 "supported_parameters": ["temperature", "max_tokens"],
                 "pricing": {"prompt": "0.0000001", "completion": "0.0000002", "request": "0"},
             }
-            for slug in ["steady", "clear"]
+            for slug in ["steady", "clear", "brief", "deep"]
         ]
 
     async def stream(self, payload: dict[str, Any]) -> AsyncIterator[Chunk]:
         prompt = payload["messages"][-1]["content"]
+        if isinstance(prompt, list):
+            prompt = "\n".join(part["text"] for part in prompt if part.get("type") == "text")
         result = (
             f"**Local simulation**\n\n{prompt}\n\n"
             "This is a deterministic mock response. No credits were spent."

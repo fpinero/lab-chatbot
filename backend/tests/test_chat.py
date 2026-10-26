@@ -195,7 +195,7 @@ def test_catalog_stale_and_refresh_throttle(settings_factory: Callable[..., Sett
     with TestClient(app) as client:
         headers = signin(client)
         catalog = client.get("/api/models").json()
-        assert len(catalog["models"]) == 2 and catalog["stale"] is False
+        assert len(catalog["models"]) == 4 and catalog["stale"] is False
         assert client.post("/api/models/refresh", headers=headers).status_code == 429
         with Session(app.state.auth.engine) as db:
             cached = db.get(CatalogCache, "chat")

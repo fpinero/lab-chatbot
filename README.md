@@ -1,6 +1,6 @@
 # Lab chatbot
 
-A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming text chat, persistent history and transactional spend reservations. The OpenRouter text adapter is implemented; live provider verification is pending. No paid call or deployment is performed by the default test suite.
+A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming chat, screenshots/documents, model comparisons, persistent history and transactional spend reservations. The OpenRouter text/vision adapter is implemented; live provider verification is pending. No paid call or deployment is performed by the default test suite.
 
 ## Local development
 
@@ -80,6 +80,16 @@ Each new request persists an immutable input snapshot and an idempotency key bef
 
 Cancellation preserves partial text and may not stop billing. Missing usage, interrupted requests and uncertain outcomes keep reservations. An authenticated billing check can retrieve known generation metadata without creating another generation. Usage records remain after conversation deletion, including an idempotency tombstone so replaying a deleted request cannot spend again.
 
+## Attachments and comparisons
+
+Chat and Compare accept PNG/JPEG/WebP screenshots and PDF, UTF-8 TXT/Markdown, CSV and DOCX documents. Defaults are five files, 10 MiB per file, 25 MiB per upload, 50 PDF pages, 20 megapixels and 100,000 extracted characters per document. Images are normalized to WebP with metadata removed and a visible resize warning above 2,048 pixels per edge. Documents provide locally extracted text; scanned PDFs without selectable text explicitly require another input because OCR is unavailable. Extraction previews are shortened visibly, while submitted context is never silently truncated.
+
+Files remain outside static assets and require authentication. Screenshot input requires an image-capable model; document text works with text models. Context estimates include saved history and output allowance and are approximate. Live vision requires an explicitly approved `VISION_REQUEST_ALLOWANCE_USD`, default zero, because token prices alone do not establish a safe vision cap. The allowance remains subject to request/daily limits. Prepared provider payloads include base64 overhead and are capped at 32 MiB.
+
+Compare validates two to four models before reserving their combined allowance atomically. Each candidate receives the same immutable context, without another candidate's response. Two global generation slots distinguish queue delay from provider latency. Cards show independent results, actual or unknown cost, usage and errors. Retry requires an explicit click and preserves previous attempts. Continue with this answer creates a normal conversation from that answer without another paid call. Saved comparisons and their files survive reload; switching modes preserves unsent drafts in memory.
+
+Referenced files remain until their conversations are deleted. Shared files survive deletion of only one reference; abandoned uploads expire after 24 hours. The application rejects uploads before its configurable 5 GiB ceiling or low disk space. The parser runs in a disposable process with a stripped environment, timeout, CPU limit on POSIX and 512 MiB address/data limits on Linux. macOS does not enforce those Linux memory limits. This process isolation is not a full operating-system sandbox; container hardening is a later gate.
+
 ## Opt-in live verification
 
 The default suite never contacts a paid provider. A separate command can perform exactly one cheap text request through the application's authenticated API:
@@ -91,4 +101,4 @@ uv run --project backend python scripts/live-text.py \
 
 Without `--execute`, this only prints a plan after validating the configured numeric allowance. Before execution, configure the approved `LIVE_TEST_BUDGET_USD` in both the backend and test process, as well as ordinary request/daily limits. Verification runs reserve against a cumulative server-side verification allowance. Then add `--execute` explicitly. Credentials are prompted privately; Access mode can read an already obtained token from excluded `CF_ACCESS_TOKEN_FILE`. The configured `APP_ORIGIN` must reach the app, including any required edge authentication. The CLI never prints credentials, prompts or answers and writes sanitized evidence to ignored `artifacts/live-text.json`.
 
-Live text verification is currently pending because credentials and approved numeric budgets have not been supplied. Image/video generation, attachments, comparisons, container validation and deployment remain pending milestones.
+Live text, vision and comparison verification is currently pending because credentials and approved numeric budgets have not been supplied. Image/video generation, container validation and deployment remain pending milestones.
