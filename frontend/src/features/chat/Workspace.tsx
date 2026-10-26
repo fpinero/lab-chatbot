@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ApiError,
   chatApi,
+  type AttachmentInfo,
   type CatalogInfo,
   type ConversationInfo,
   type RunInfo,
@@ -10,7 +11,9 @@ import {
   type UsageInfo,
 } from "../../lib/api";
 import { copy } from "../../lib/copy";
-import Markdown from "./Markdown";
+import RunCard from "./RunCard";
+import AttachmentPicker from "../attachments/AttachmentPicker";
+import ComparisonPanel from "../compare/ComparisonPanel";
 
 const terminal = (run: RunInfo) =>
   ["succeeded", "failed", "cancelled", "interrupted"].includes(run.status);
@@ -31,6 +34,10 @@ export default function Workspace({
   expired: () => void;
   notice: string;
 }) {
+  const [mode, setMode] = useState<"chat" | "compare">("chat");
+  const [files, setFiles] = useState<AttachmentInfo[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [compareReplay, setCompareReplay] = useState<RunInfo | null>(null);
   const [catalog, setCatalog] = useState<CatalogInfo | null>(null);
   const [history, setHistory] = useState<ConversationInfo[]>([]);
   const [conversation, setConversation] = useState<ConversationInfo | null>(
@@ -54,6 +61,12 @@ export default function Workspace({
   const pending = useRef<{ fingerprint: string; body: RunStart } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const active = answers.find((run) => !terminal(run));
+  const incompatible =
+    files.some((item) => item.kind === "image") &&
+    !!catalog?.models.find(
+      (model) =>
+        model.id === modelId && !model.input_modalities.includes("image"),
+    );
   const selected = catalog?.models.find((model) => model.id === modelId);
 
   function failed(error: unknown) {
@@ -162,7 +175,8 @@ export default function Workspace({
       const saved = await chatApi.conversation(item.id);
       focused.current = saved.id;
       setConversation(saved);
-      setAnswers(saved.runs);
+      setAnswers(saved.runs.filter((run) => !run.comparison_id));
+      setCompareReplay(null);
       setNavigationOpen(false);
       const last = saved.runs.at(-1);
       if (last && typeof last.settings.system_prompt === "string")
@@ -180,6 +194,8 @@ export default function Workspace({
     event?.preventDefault();
     if (
       submitting.current ||
+      uploading ||
+      incompatible ||
       active ||
       !selected ||
       (!retryOf && !draft.trim())
@@ -203,7 +219,11 @@ export default function Workspace({
         model_id: modelId,
         idempotency_key: crypto.randomUUID().replaceAll("-", ""),
         prompt: retryOf ? (editedPrompt ?? "") : draft.trim(),
-        system_prompt: systemPrompt,
+        system_prompt:
+          retryOf && typeof retryOf.settings.system_prompt === "string"
+            ? retryOf.settings.system_prompt
+            : systemPrompt,
+        attachment_ids: retryOf ? [] : files.map((item) => item.id),
         max_tokens: maximum,
         ...(selected.supported_parameters.includes("temperature") &&
         temperature !== ""
@@ -218,7 +238,12 @@ export default function Workspace({
       const run = await chatApi.submit(body);
       update(run);
       pending.current = null;
-      if (!retryOf) setDraft("");
+      if (!retryOf) {
+        setDraft((previous) => (previous === draft ? "" : previous));
+        setFiles((previous) =>
+          previous.filter((item) => !body.attachment_ids?.includes(item.id)),
+        );
+      }
       setHistory(await chatApi.history(search));
       await refreshUsage();
     } catch (error) {
@@ -300,6 +325,7 @@ export default function Workspace({
           onClick={() => {
             focused.current = null;
             setConversation(null);
+            setCompareReplay(null);
             setAnswers([]);
             setNavigationOpen(false);
           }}
@@ -366,12 +392,26 @@ export default function Workspace({
           </button>
         </header>
         <div className="model-bar">
-          <span className="mode-label">{copy.chat}</span>
+          <label className="sr-only" htmlFor="mode">
+            {copy.mode}
+          </label>
+          <select
+            className="mode-select"
+            id="mode"
+            value={mode}
+            onChange={(event) =>
+              setMode(event.target.value as "chat" | "compare")
+            }
+          >
+            <option value="chat">{copy.chat}</option>
+            <option value="compare">{copy.compare}</option>
+          </select>
           <label className="sr-only" htmlFor="model">
             {copy.model}
           </label>
           <select
             id="model"
+            hidden={mode !== "chat"}
             value={modelId}
             onChange={(event) => setModelId(event.target.value)}
           >
@@ -383,7 +423,7 @@ export default function Workspace({
             ))}
           </select>
         </div>
-        <div className="chat-scroll">
+        <div hidden={mode !== "chat"} className="chat-scroll">
           {answers.length === 0 && (
             <section className="intro chat-intro">
               <span className="eyebrow">{copy.subtitle}</span>
@@ -423,120 +463,62 @@ export default function Workspace({
               aria-label={`${run.model_name} ${run.turn}`}
             >
               <div className="user-message">{run.prompt}</div>
-              <article className="answer">
-                <div className="answer-heading">
-                  <strong>{run.model_name}</strong>
-                  <span>{run.provider ?? copy.providerUnknown}</span>
-                  <span role="status">
-                    {copy.status[run.status as keyof typeof copy.status] ??
-                      run.status}
-                  </span>
-                </div>
-                {typeof run.settings.retry_of === "string" && (
-                  <p className="eyebrow">{copy.savedInput}</p>
-                )}
-                <Markdown text={run.output} />
-                {Array.isArray(run.usage?.providers_seen) &&
-                  run.usage.providers_seen.length > 1 && (
-                    <p className="notice">
-                      {copy.routingChanged}{" "}
-                      {run.usage.providers_seen.join(", ")}
-                    </p>
-                  )}
-                <div className="answer-meta">
-                  <span>
-                    {run.actual_microusd === null
-                      ? copy.unknownCost
-                      : `${copy.actualCost}: ${usd(run.actual_microusd)}`}
-                  </span>
-                  <span>
-                    {copy.reservation}: {usd(run.reserved_microusd)}
-                  </span>
-                  <span>
-                    {copy.maxTokens}: {String(run.settings.max_tokens ?? "")}
-                  </span>
-                  {run.settings.temperature !== null &&
-                    run.settings.temperature !== undefined && (
-                      <span>
-                        {copy.temperature}: {String(run.settings.temperature)}
-                      </span>
-                    )}
-                  {run.first_token_ms !== null &&
-                    run.first_token_ms !== undefined && (
-                      <span>
-                        {copy.firstToken}:{" "}
-                        {(run.first_token_ms / 1000).toFixed(2)} s
-                      </span>
-                    )}
-                  {run.elapsed_ms !== null && (
-                    <span>{(run.elapsed_ms / 1000).toFixed(2)} s</span>
-                  )}
-                  {typeof run.usage?.reasoning_tokens === "number" && (
-                    <span>
-                      {copy.reasoningTokens}: {run.usage.reasoning_tokens}
-                    </span>
-                  )}
-                  {run.usage?.prompt_tokens !== undefined && (
-                    <span>
-                      {String(run.usage.prompt_tokens)} /{" "}
-                      {String(run.usage.completion_tokens ?? "?")} tokens
-                    </span>
-                  )}
-                </div>
-                {run.error_code && (
-                  <p className="error">
-                    {copy.chatFailure} ({run.error_code})
-                  </p>
-                )}
-                <div className="answer-actions">
-                  <button
-                    className="plain-button"
-                    onClick={() => {
-                      void navigator.clipboard
-                        .writeText(run.output)
-                        .catch(failed);
-                    }}
-                  >
-                    {copy.copyResponse}
-                  </button>
-                  <button
-                    className="plain-button"
-                    disabled={busy || !!active}
-                    onClick={() => void submit(undefined, run)}
-                  >
-                    {copy.repeat}
-                  </button>
-                  <button
-                    className="plain-button"
-                    disabled={busy || !!active}
-                    onClick={() => {
-                      const edited = window.prompt(copy.editPrompt, run.prompt);
-                      if (edited?.trim()) void submit(undefined, run, edited);
-                    }}
-                  >
-                    {copy.edit}
-                  </button>
-                  {run.accounting_state === "uncertain" && (
+              <RunCard
+                run={run}
+                actions={
+                  <>
                     <button
                       className="plain-button"
+                      disabled={busy || !!active}
+                      onClick={() => void submit(undefined, run)}
+                    >
+                      {copy.repeat}
+                    </button>
+                    <button
+                      className="plain-button"
+                      disabled={busy || !!active}
                       onClick={() => {
-                        void chatApi
-                          .reconcile(run.id)
-                          .then(update)
-                          .then(refreshUsage)
-                          .catch(failed);
+                        const edited = window.prompt(
+                          copy.editPrompt,
+                          run.prompt,
+                        );
+                        if (edited?.trim()) void submit(undefined, run, edited);
                       }}
                     >
-                      {copy.reconcile}
+                      {copy.edit}
                     </button>
-                  )}
-                </div>
-              </article>
+                    <button
+                      className="plain-button"
+                      disabled={busy || !!active}
+                      onClick={() => {
+                        setCompareReplay(run);
+                        setMode("compare");
+                      }}
+                    >
+                      {copy.compareSaved}
+                    </button>
+                    {run.accounting_state === "uncertain" && (
+                      <button
+                        className="plain-button"
+                        onClick={() => {
+                          void chatApi
+                            .reconcile(run.id)
+                            .then(update)
+                            .then(refreshUsage)
+                            .catch(failed);
+                        }}
+                      >
+                        {copy.reconcile}
+                      </button>
+                    )}
+                  </>
+                }
+              />
             </section>
           ))}
           <div ref={endRef} />
         </div>
-        <div className="chat-composer">
+        <div hidden={mode !== "chat"} className="chat-composer">
           {(error || notice) && (
             <p role="alert" className="error">
               {error || notice}
@@ -548,6 +530,19 @@ export default function Workspace({
             </p>
           )}
           {catalog?.stale && <p className="notice">{copy.stale}</p>}
+          <AttachmentPicker
+            items={files}
+            onChange={setFiles}
+            label={copy.attachChat}
+            disabled={busy}
+            onFailure={failed}
+            onBusyChange={setUploading}
+          />
+          {incompatible && (
+            <p role="alert" className="error">
+              {copy.incompatibleFiles}
+            </p>
+          )}
           <details>
             <summary>{copy.advanced}</summary>
             <div className="model-preferences">
@@ -647,7 +642,13 @@ export default function Workspace({
                 ) : (
                   <button
                     type="submit"
-                    disabled={busy || !draft.trim() || !selected}
+                    disabled={
+                      busy ||
+                      uploading ||
+                      incompatible ||
+                      !draft.trim() ||
+                      !selected
+                    }
                   >
                     {busy ? copy.sending : copy.send}
                   </button>
@@ -667,6 +668,34 @@ export default function Workspace({
               ` · ${catalog.ranking} · ${copy.refreshed}: ${new Date(catalog.fetched_at * 1000).toLocaleString()}`}
           </p>
         </div>
+        {catalog && (
+          <ComparisonPanel
+            hidden={mode !== "compare"}
+            catalog={catalog}
+            conversation={conversation}
+            replay={compareReplay}
+            clearReplay={() => setCompareReplay(null)}
+            onConversation={setConversation}
+            expired={expired}
+            onUsageChange={() => {
+              void refreshUsage().catch(failed);
+            }}
+            onContinue={(saved) => {
+              focused.current = saved.id;
+              setConversation(saved);
+              setAnswers(saved.runs.filter((run) => !run.comparison_id));
+              setMode("chat");
+              setCompareReplay(null);
+              const last = saved.runs.at(-1);
+              if (
+                last &&
+                catalog.models.some((model) => model.id === last.model_id)
+              )
+                setModelId(last.model_id);
+              void chatApi.history(search).then(setHistory).catch(failed);
+            }}
+          />
+        )}
       </main>
     </div>
   );

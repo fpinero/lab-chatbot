@@ -41,8 +41,10 @@ def test_mock_is_network_free(
 def test_api_never_falls_back_to_html(
     tmp_path: Path, settings_factory: Callable[..., Settings]
 ) -> None:
-    (tmp_path / "index.html").write_text("<html>Application</html>")
-    with TestClient(create_app(settings_factory(), static_dir=tmp_path)) as client:
+    static = tmp_path / "static"
+    static.mkdir()
+    (static / "index.html").write_text("<html>Application</html>")
+    with TestClient(create_app(settings_factory(), static_dir=static)) as client:
         assert client.get("/conversation/example").text == "<html>Application</html>"
         headers = signin(client)
         for path in ("/api/unknown", "/api"):

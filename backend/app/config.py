@@ -25,6 +25,16 @@ class Settings(BaseSettings):
     model_allowlist: list[str] = Field(default_factory=list)
     max_output_tokens: int = Field(default=2048, ge=1, le=32768)
     max_queued_runs: int = Field(default=16, ge=1, le=64)
+    max_upload_files: int = Field(default=5, ge=1, le=10)
+    max_upload_file_bytes: int = Field(default=10 * 1024 * 1024, ge=1, le=50 * 1024 * 1024)
+    max_upload_total_bytes: int = Field(default=25 * 1024 * 1024, ge=1, le=100 * 1024 * 1024)
+    max_pdf_pages: int = Field(default=50, ge=1, le=200)
+    max_document_characters: int = Field(default=100000, ge=1, le=500000)
+    max_image_pixels: int = Field(default=20000000, ge=1, le=40000000)
+    max_image_edge: int = Field(default=2048, ge=16, le=4096)
+    max_provider_payload_bytes: int = Field(default=32 * 1024 * 1024, ge=1024, le=64 * 1024 * 1024)
+    storage_ceiling_bytes: int = Field(default=5 * 1024**3, ge=1024 * 1024)
+    vision_request_allowance_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
     data_dir: Path = Path("data")
     database_url: str | None = None
     auth_mode: Literal["password", "access", "policy"] = "password"

@@ -4,6 +4,10 @@ version = "0.1.0"
 description = "Private model experimentation workspace"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+  "python-multipart>=0.0.22,<1",
+  "pypdf>=6,<8",
+  "python-docx>=1.2,<2",
+  "pillow>=12,<14",
   "simplejson>=3.20,<4",
   "sqlalchemy>=2.0.46,<2.1",
   "alembic>=1.18,<2",

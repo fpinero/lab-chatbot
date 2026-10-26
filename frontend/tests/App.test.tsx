@@ -42,6 +42,15 @@ function mockRequests(signedIn: boolean, fails = false) {
       if (url.endsWith("/auth/login")) return reply(configuration);
       if (url.endsWith("/auth/session"))
         return signedIn ? reply(ownerSession) : reply({}, 401);
+      if (url.endsWith("/attachments/limits"))
+        return reply({
+          files: 5,
+          file_bytes: 10485760,
+          total_bytes: 26214400,
+          allowed_extensions: [".png", ".txt"],
+          vision_allowance_microusd: 0,
+        });
+      if (url.endsWith("/comparisons")) return reply([]);
       if (url.endsWith("/models"))
         return reply({
           models: [model],
@@ -140,4 +149,33 @@ test("Markdown disables raw HTML, executable links and external image loading", 
     "javascript:",
   );
   expect(screen.getByRole("button", { name: "Copy code" })).toBeVisible();
+});
+
+test("switching modes preserves independent drafts without dispatch", async () => {
+  const fetcher = mockRequests(true);
+  render(<App />);
+  await userEvent.type(
+    await screen.findByLabelText("Message", { exact: true }),
+    "Chat draft",
+  );
+  await userEvent.selectOptions(screen.getByLabelText("Mode"), "compare");
+  await userEvent.type(
+    screen.getByLabelText("Comparison prompt"),
+    "Compare draft",
+  );
+  await userEvent.selectOptions(screen.getByLabelText("Mode"), "chat");
+  expect(screen.getByLabelText("Message", { exact: true })).toHaveValue(
+    "Chat draft",
+  );
+  await userEvent.selectOptions(screen.getByLabelText("Mode"), "compare");
+  expect(screen.getByLabelText("Comparison prompt")).toHaveValue(
+    "Compare draft",
+  );
+  expect(
+    fetcher.mock.calls.some(
+      ([url, options]) =>
+        options?.method === "POST" &&
+        (String(url).endsWith("/runs") || String(url).endsWith("/comparisons")),
+    ),
+  ).toBe(false);
 });

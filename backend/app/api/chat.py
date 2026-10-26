@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.auth.service import AuthError, AuthService
-from app.models import Charge, Conversation, Preferences, Run
+from app.models import Charge, Conversation, Preferences, Run, RunAttachment
 from app.services.catalog import CatalogInfo, CatalogService
 from app.services.runs import TERMINAL, RunInfo, RunService, RunStart
 
@@ -170,8 +170,16 @@ def delete_conversation(conversation_id: str, request: Request, confirm: bool = 
             raise AuthError(
                 409, "conversation_busy", "Stop active runs before deleting this conversation."
             )
+        attachment_ids = list(
+            db.scalars(
+                select(RunAttachment.attachment_id)
+                .join(Run, Run.id == RunAttachment.run_id)
+                .where(Run.conversation_id == item.id)
+            )
+        )
         db.execute(delete(Conversation).where(Conversation.id == item.id))
         db.commit()
+    runs(request).attachments.collect(attachment_ids)
     return Response(status_code=204)
 
 
@@ -205,6 +213,12 @@ def export_conversation(
         media_type="text/markdown",
         headers={"Content-Disposition": f'attachment; filename="{detail.id}.md"'},
     )
+
+
+@router.post("/runs/{run_id}/fork", response_model=ConversationDetail, status_code=201)
+def fork_run(run_id: str, request: Request) -> ConversationDetail:
+    identifier = runs(request).fork(owner(request), run_id)
+    return get_conversation(identifier, request)
 
 
 @router.post("/runs", response_model=RunInfo, status_code=202)

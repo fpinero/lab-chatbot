@@ -1,4 +1,50 @@
 export const copy = {
+  originalCost: "Original cost",
+  runFailed:
+    "Generation did not complete. Saved input and any partial answer remain available.",
+  characters: "characters",
+  uploadLimits: (files: number, file: number, total: number) =>
+    `${files} files · ${file} MiB / file · ${total} MiB total`,
+  mode: "Mode",
+  compare: "Compare",
+  compareModels: "Choose two to four models",
+  comparePrompt: "Comparison prompt",
+  comparePlaceholder: "Compare a prompt across models...",
+  runComparison: "Compare models",
+  comparisonNotice:
+    "Identical inputs do not guarantee deterministic or scientifically equivalent results.",
+  snapshot: "Shared input snapshot",
+  previousAttempts: "Previous attempts preserved",
+  savedComparisons: "Saved comparisons",
+  noComparisons: "No saved comparison selected",
+  retryCandidate: "Retry this candidate",
+  continueAnswer: "Continue with this answer",
+  compareSaved: "Compare saved input",
+  savedInputNotice:
+    "This comparison will reuse the saved context and attachments exactly.",
+  newInput: "Use a new prompt",
+  imported:
+    "Continued answer. Its original cost is already accounted for; no new generation was made.",
+  queuedFor: "Queue delay",
+  startedAt: "Started",
+  attachFiles: "Attach files",
+  attachChat: "Attach files to chat",
+  attachCompare: "Attach files to comparison",
+  uploading: "Processing files...",
+  removeFromDraft: "Remove from draft",
+  extractedPreview: "Extracted text preview",
+  extractionNotice:
+    "Documents are extracted locally and sent as text. Screenshots require image-input support.",
+  previewTruncated:
+    "Preview shortened; the full extracted text is retained for context.",
+  uploadFailed: "Upload failed. Check the file format and configured limits.",
+  tooManyFiles: "This selection exceeds the configured attachment count.",
+  incompatibleFiles:
+    "Every selected model must support image input for these screenshots.",
+  modelUnavailable: "Unavailable selected model",
+  visionAllowance: "Configured vision allowance per model",
+  visionUnconfigured:
+    "Live vision requires an explicitly configured allowance for uncertain input pricing.",
   firstToken: "First token",
   reasoningTokens: "Reasoning tokens",
   approximate: "Approximate upper estimate",
@@ -61,6 +107,7 @@ export const copy = {
     failed: "Failed",
     cancelled: "Cancelled",
     interrupted: "Interrupted",
+    partial_failure: "Partial failure",
   },
   loading: "Loading workspace...",
   loginTitle: "A space of your own.",
@@ -73,7 +120,7 @@ export const copy = {
   signInFailed: "Sign-in failed. Check your credentials and try again.",
   throttled: "Too many attempts. Wait five minutes before trying again.",
   expired: "Your session has expired. Sign in again to continue.",
-  version: "M2 / Text chat",
+  version: "Your private model workspace",
   production: "Private workspace",
   secureNotice: "Your session is protected by a secure server-side cookie.",
   navigation: "Navigation",

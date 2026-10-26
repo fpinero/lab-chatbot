@@ -47,6 +47,9 @@ class Run(Base):
     conversation_id: Mapped[str] = mapped_column(
         ForeignKey("conversations.id", ondelete="CASCADE"), index=True
     )
+    comparison_id: Mapped[str | None] = mapped_column(
+        ForeignKey("comparison_groups.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     model_id: Mapped[str] = mapped_column(String)
     turn: Mapped[int] = mapped_column(Integer)
     snapshot_json: Mapped[str] = mapped_column(String)
@@ -98,3 +101,42 @@ class Preferences(Base):
         ForeignKey("owners.id", ondelete="CASCADE"), primary_key=True
     )
     favorites_json: Mapped[str] = mapped_column(String, default="[]")
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("owners.id"), index=True)
+    display_name: Mapped[str] = mapped_column(String(160))
+    kind: Mapped[str] = mapped_column(String)
+    mime: Mapped[str] = mapped_column(String)
+    storage_name: Mapped[str] = mapped_column(String, unique=True)
+    sha256: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer)
+    original_size: Mapped[int] = mapped_column(Integer)
+    extracted_text: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
+    warnings_json: Mapped[str] = mapped_column(String)
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[int] = mapped_column(Integer, index=True)
+
+
+class RunAttachment(Base):
+    __tablename__ = "run_attachments"
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True)
+    attachment_id: Mapped[str] = mapped_column(ForeignKey("attachments.id"), primary_key=True)
+
+
+class Comparison(Base):
+    __tablename__ = "comparison_groups"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("owners.id"), index=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String)
+    request_hash: Mapped[str] = mapped_column(String(64))
+    snapshot_json: Mapped[str] = mapped_column(String)
+    created_at: Mapped[int] = mapped_column(Integer)
+    __table_args__ = (Index("ux_comparison_owner_key", "owner_id", "idempotency_key", unique=True),)

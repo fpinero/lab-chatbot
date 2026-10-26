@@ -58,3 +58,22 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Container and deployment verification remain pending later milestones. M2 pull request/integration are pending.
 
 - Additional M2 gate verification: two CLI tests confirm that read-only planning cannot construct an HTTP client and that execution without an approved numeric allowance fails before network access. These pass separately from the 52-test backend run recorded above.
+
+## 2026-10-26: M2 remote integration
+
+- Pull request: https://github.com/fpinero/lab-chatbot/pull/3. CI run `40414412169` passed with 54 backend tests, frontend checks and browser workflows. No pending review feedback remained.
+- Confirmed remote merge: `60fcf05b4618b654d8b7566087d03fe1ba1ccd7d`, at `2026-10-26T22:47:25Z`. Source: `8afdb99250bc71b8724ec9b92e7d6ada9981f5bf`.
+- Retained branch: `feature/m2-text-chat`, locally and remotely. Earliest cleanup: `2026-11-02T22:47:25Z`; no automatic cleanup.
+- Synchronized main before creating `feature/m3-attachments-comparisons`. The connected GitHub app is read-only for PR mutations, so authorized CLI integration was used without bypassing protections.
+- Live provider evidence remains blocked by missing restricted credentials and approved numeric budgets. Local attachment/comparison work can proceed without paid calls.
+
+## 2026-10-27: M3 local verification
+
+- Added private bounded uploads, real PDF/DOCX/text/CSV extraction and screenshot normalization in a disposable parser process. Validated MIME/magic/path rules, encrypted/scanned files, unsafe ZIP/XML features, decoded pixels, actual streamed bytes and combined context size across separate uploads.
+- Parser limits include a ten-second timeout, POSIX CPU limit and Linux 512 MiB address/data limits. macOS rejects the Linux data limit, so local macOS checks retain byte/CPU/timeout guards without claiming a memory sandbox.
+- Snapshots store locally extracted document text and hashed image references. Dispatch verifies content and forwards real WebP data URLs. Compatibility, approximate context and explicit uncertain vision allowances are checked before spending.
+- Comparisons validate two to four candidates, reserve their combined allowance atomically and use the shared two-call concurrency limit. Identical request assertions, partial failures, deliberate retry and continuation using only the selected answer pass. Continuing does not add a charge; shared attachments survive source deletion.
+- The additive migration preserves populated M2 history and usage links. Authenticated cleanup removes expired abandoned uploads and safely collects unreferenced files.
+- Full local verification passed: locked installs, Ruff, mypy (23 source files), 80 backend tests, generated API contract, frontend formatting/types, 4 Vitest tests, production build and 5 Playwright scenarios with one explicit desktop skip for the mobile-only viewport. One subsequently added combined-context regression also passes; affected backend suites are rerun before commit.
+- Inspected desktop/mobile comparison and continuation screenshots. Real browser workflows upload PNG plus TXT, preserve drafts across mode changes, compare three models, reload results and continue without generation. The production build reports a non-failing 577 kB bundle warning; UX/container optimization remains in M6.
+- Live text/vision/document/comparison evidence remains unavailable: no restricted provider key or approved numeric budgets are configured. No paid requests or deployment ran. M3 remote integration remains pending.
