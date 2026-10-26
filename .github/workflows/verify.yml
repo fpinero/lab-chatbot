@@ -28,7 +28,7 @@ jobs:
         with:
           name: browser-evidence
           path: |
-            artifacts/m0-*.png
+            artifacts/m*.png
             frontend/test-results
           retention-days: 7
 # Deployment is intentionally absent. Release automation has separate verification gates.
