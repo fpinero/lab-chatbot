@@ -137,6 +137,9 @@ def test_images_are_normalized_forwarded_as_images_and_reused(
     "name,data,mime",
     [
         ("../secret.txt", b"fixture", "text/plain"),
+        ("..／secret.txt", b"fixture", "text/plain"),
+        ("..＼secret.txt", b"fixture", "text/plain"),
+        ("drive：secret.txt", b"fixture", "text/plain"),
         ("screen.png", png(), "image/jpeg"),
         ("screen.jpg", png(), "image/jpeg"),
         ("page.html", b"<html>fixture</html>", "text/html"),

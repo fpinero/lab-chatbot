@@ -108,3 +108,10 @@ Entries are append-only. Record verified work and evidence without credentials o
 
 - M4 CI run `40424832791` passed on `51edef19fb35ca9edcedc2b19fe68894eee07dd6`. No review comments or requested reviews remain. Cancelled only the superseded run `40424777419`; the current verification completed successfully.
 - Confirmed all M0-M4 working branches are retained locally and remotely. The current M4 PR remains a draft and unmerged solely because the mandatory approved live-image evidence is unavailable. No secret or budget was inferred from elapsed time or standing repository authorization.
+
+## 2026-10-27: M4 final filename regression
+
+- Demonstrated three filename-validation failures: Unicode normalization could produce slash, backslash or drive-colon syntax after the initial raw-name check. Generated storage IDs prevented filesystem traversal, but normalized display names did not satisfy the rejection contract.
+- Added rejection after normalization and retained the three regression fixtures. Full local verification now passes 106 backend tests, 4 frontend tests and 7 browser scenarios (one intentional desktop skip), plus formatting/types/build/contract checks.
+- All 51 image/attachment/comparison/migration tests pass in the Linux ARM64 check container with the corrected public files mounted read-only. Network is disabled and the process is non-root. No paid provider call ran.
+- Recorded explicit custom database-path/static-root validation in the M6 hardening queue; the current tests verify the normal private data-directory layout. Production packaging and release remain pending.

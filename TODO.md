@@ -22,6 +22,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## M6: Local release candidate
 
+- [ ] Validate custom SQLite URL paths against compiled static locations, including URI/override cases. Acceptance: startup rejects every writable database/data path under public assets before opening storage.
 - [ ] Package explicit-source multi-stage image and loopback Compose with named volume. Acceptance: non-root/read-only execution and no secrets/private brief in image.
 - [ ] Add storage/rate/concurrency limits, sanitized request IDs and local readiness. Acceptance: pressure and bounded queue behavior are tested.
 - [ ] Add consistent SQLite/file backup and isolated restore. Acceptance: restart preserves sessions/history/media and restore reproduces referenced data.

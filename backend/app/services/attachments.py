@@ -152,6 +152,8 @@ class AttachmentService:
             for char in unicodedata.normalize("NFKC", value)
             if unicodedata.category(char)[0] != "C"
         )
+        if any(char in name for char in ["/", "\\", ":"]):
+            raise AuthError(422, "unsafe_filename", "Use a filename without path components.")
         extension = Path(name).suffix.lower()
         if extension not in MIMES or len(name) > 160 or not name.strip():
             raise AuthError(
