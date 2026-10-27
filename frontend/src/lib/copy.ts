@@ -112,6 +112,16 @@ export const copy = {
     "Every selected model must support image input for these screenshots.",
   modelUnavailable: "Unavailable selected model",
   visionAllowance: "Configured vision allowance per model",
+  providerSpending: "Spending controlled by OpenRouter",
+  providerKeyLimit: "Key budget",
+  providerKeyRemaining: "Key remaining",
+  providerBudgetUnavailable:
+    "OpenRouter balance unavailable. Generation requires verification.",
+  providerReservation: "Key remainder reserved for uncertain pricing",
+  refreshUsage: "Refresh balance",
+  budgetChecked: "Balance checked",
+  providerVision:
+    "Uses the shared OpenRouter key budget. Image-input pricing may be uncertain.",
   visionUnconfigured:
     "Live vision requires an explicitly configured allowance for uncertain input pricing.",
   firstToken: "First token",

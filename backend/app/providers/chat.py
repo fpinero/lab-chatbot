@@ -20,6 +20,13 @@ class ProviderError(Exception):
         self.code = code
 
 
+class ProviderKeyBudget(BaseModel):
+    limit_usd: Decimal = Field(gt=0, allow_inf_nan=False)
+    remaining_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    used_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    checked_at: int
+
+
 class Chunk(BaseModel):
     text: str = ""
     provider: str | None = Field(default=None, max_length=200)
@@ -30,6 +37,7 @@ class Chunk(BaseModel):
 class ChatProvider(Protocol):
     async def catalog(self) -> list[dict[str, Any]]: ...
     async def authorize(self) -> None: ...
+    async def key_budget(self, refresh: bool = False) -> ProviderKeyBudget: ...
     def stream(self, payload: dict[str, Any]) -> AsyncIterator[Chunk]: ...
     async def close(self) -> None: ...
     async def generation(self, generation_id: str) -> dict[str, Any] | None: ...
@@ -40,6 +48,7 @@ class OpenRouter:
         self, settings: Settings, transport: httpx.AsyncBaseTransport | None = None
     ) -> None:
         self.authorized_until = 0.0
+        self.budget: ProviderKeyBudget | None = None
         self.key_lock = asyncio.Lock()
         self.client = httpx.AsyncClient(
             base_url=BASE_URL,
@@ -85,8 +94,18 @@ class OpenRouter:
         raise ProviderError("provider_read_failed")
 
     async def authorize(self) -> None:
+        await self._authorize()
+
+    async def key_budget(self, refresh: bool = False) -> ProviderKeyBudget:
+        stale = not self.budget or time.time() - self.budget.checked_at >= 15
+        await self._authorize(refresh or stale)
+        if self.budget is None:
+            raise ProviderError("provider_budget_unavailable")
+        return self.budget
+
+    async def _authorize(self, refresh: bool = False) -> None:
         async with self.key_lock:
-            if time.monotonic() < self.authorized_until:
+            if not refresh and time.monotonic() < self.authorized_until:
                 return
             response = await self.read_json("key", {})
             data = response.get("data")
@@ -102,6 +121,32 @@ class OpenRouter:
                     raise ProviderError("provider_key_unrestricted")
             except (ValueError, ArithmeticError) as exc:
                 raise ProviderError("provider_key_unrestricted") from exc
+            self.budget = None
+            try:
+                remaining = Decimal(str(data.get("limit_remaining")))
+                used = Decimal(str(data.get("usage")))
+                if (
+                    "limit_reset" not in data
+                    or data["limit_reset"] is not None
+                    or not remaining.is_finite()
+                    or not used.is_finite()
+                    or used < 0
+                ):
+                    raise ValueError("A fixed key budget is required.")
+                effective = data.get("effective_budget")
+                if isinstance(effective, dict) and effective.get("remaining_usd") is not None:
+                    effective_remaining = Decimal(str(effective["remaining_usd"]))
+                    if not effective_remaining.is_finite():
+                        raise ValueError("Invalid effective budget.")
+                    remaining = min(remaining, effective_remaining)
+                self.budget = ProviderKeyBudget(
+                    limit_usd=limit,
+                    remaining_usd=max(Decimal(0), min(limit, remaining)),
+                    used_usd=used,
+                    checked_at=int(time.time()),
+                )
+            except (ValueError, ArithmeticError):
+                pass
             self.authorized_until = time.monotonic() + 300
 
     async def catalog(self) -> list[dict[str, Any]]:
@@ -192,6 +237,14 @@ class OpenRouter:
 
 
 class MockChat:
+    async def key_budget(self, refresh: bool = False) -> ProviderKeyBudget:
+        return ProviderKeyBudget(
+            limit_usd=Decimal("10"),
+            remaining_usd=Decimal("10"),
+            used_usd=Decimal(0),
+            checked_at=int(time.time()),
+        )
+
     async def authorize(self) -> None:
         pass
 

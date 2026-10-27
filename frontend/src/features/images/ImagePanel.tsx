@@ -452,7 +452,12 @@ export default function ImagePanel({
             {quote && (
               <>
                 <p>
-                  {quote.uncertain ? copy.imageAllowance : copy.approximate}:{" "}
+                  {quote.uncertain
+                    ? quote.spend_control === "provider"
+                      ? copy.providerReservation
+                      : copy.imageAllowance
+                    : copy.approximate}
+                  :{" "}
                   {quote.reservation_microusd === null
                     ? copy.imageUnknownEstimate
                     : usd(quote.reservation_microusd!)}

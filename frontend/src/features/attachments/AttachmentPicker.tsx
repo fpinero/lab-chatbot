@@ -142,9 +142,11 @@ export default function AttachmentPicker({
       )}
       {!imageOnly && items.some((item) => item.kind === "image") && limits && (
         <small className="extraction-notice">
-          {limits.vision_allowance_microusd > 0
-            ? `${copy.visionAllowance}: $${(limits.vision_allowance_microusd / 1000000).toFixed(6)}`
-            : copy.visionUnconfigured}
+          {limits.spend_control === "provider"
+            ? copy.providerVision
+            : limits.vision_allowance_microusd > 0
+              ? `${copy.visionAllowance}: $${(limits.vision_allowance_microusd / 1000000).toFixed(6)}`
+              : copy.visionUnconfigured}
         </small>
       )}
     </div>

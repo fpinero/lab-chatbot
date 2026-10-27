@@ -32,7 +32,11 @@ function reply(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), { status });
 }
 
-function mockRequests(signedIn: boolean, fails = false) {
+function mockRequests(
+  signedIn: boolean,
+  fails = false,
+  providerBudget = false,
+) {
   return vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (input, options) => {
@@ -61,10 +65,19 @@ function mockRequests(signedIn: boolean, fails = false) {
       if (url.endsWith("/preferences")) return reply({ favorites: [] });
       if (url.endsWith("/usage"))
         return reply({
+          spend_control: providerBudget ? "provider" : "application",
+          provider_key_budget: providerBudget
+            ? {
+                limit_usd: "9.9",
+                remaining_usd: "8.5",
+                used_usd: "1.4",
+                checked_at: 1700000000,
+              }
+            : null,
           daily_actual_microusd: 0,
           outstanding_microusd: 0,
           uncertain_count: 0,
-          simulated: true,
+          simulated: !providerBudget,
         });
       if (url.includes("/conversations?q=")) return reply([]);
       if (url.endsWith("/conversations"))
@@ -90,6 +103,25 @@ function mockRequests(signedIn: boolean, fails = false) {
       throw new Error("Unexpected route");
     });
 }
+
+test("provider balance shows the shared key budget and refresh never generates", async () => {
+  const fetcher = mockRequests(true, false, true);
+  render(<App />);
+  expect(
+    await screen.findByText("Spending controlled by OpenRouter"),
+  ).toBeVisible();
+  expect(screen.getByText("Key budget: $9.90")).toBeVisible();
+  expect(screen.getByText("Key remaining: $8.500000")).toBeVisible();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Refresh balance" }),
+  );
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).endsWith("/usage")),
+  ).toHaveLength(2);
+  expect(
+    fetcher.mock.calls.some(([, options]) => options?.method === "POST"),
+  ).toBe(false);
+});
 
 test("sign-in gates chat and credentials stay out of browser storage", async () => {
   mockRequests(false);

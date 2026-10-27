@@ -14,6 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.auth.service import AuthError, AuthService
 from app.models import Charge, Conversation, Preferences, Run, RunAttachment
+from app.providers.chat import ProviderKeyBudget
 from app.services.catalog import CatalogInfo, CatalogService
 from app.services.runs import TERMINAL, RunInfo, RunService, RunStart
 
@@ -304,21 +305,28 @@ async def run_events(run_id: str, request: Request) -> StreamingResponse:
 
 
 class UsageInfo(BaseModel):
+    spend_control: Literal["application", "provider"] = "application"
+    provider_key_budget: ProviderKeyBudget | None = None
     currency: Literal["USD"] = "USD"
     daily_actual_microusd: int
     outstanding_microusd: int
     uncertain_count: int
-    request_limit_microusd: int
-    daily_limit_microusd: int
+    request_limit_microusd: int | None
+    daily_limit_microusd: int | None
     simulated: bool
     conversations: dict[str, int]
 
 
 @router.get("/usage", response_model=UsageInfo)
-def usage(request: Request) -> UsageInfo:
+async def usage(request: Request) -> UsageInfo:
     from app.services.runs import allowance_microusd
 
     service = runs(request)
+    if service.settings.spend_control == "provider":
+        try:
+            await service.refresh_provider_budget(refresh=True)
+        except AuthError:
+            pass
     day = service.now() // 86400 * 86400
     actual, reserved, uncertain = 0, 0, 0
     totals: dict[str, int] = {}
@@ -335,11 +343,17 @@ def usage(request: Request) -> UsageInfo:
                     charge.actual_microusd or 0
                 )
     return UsageInfo(
+        spend_control=service.settings.spend_control,
+        provider_key_budget=service.provider_budget,
         daily_actual_microusd=actual,
         outstanding_microusd=reserved,
         uncertain_count=uncertain,
-        request_limit_microusd=allowance_microusd(service.settings.max_request_usd),
-        daily_limit_microusd=allowance_microusd(service.settings.daily_budget_usd),
+        request_limit_microusd=allowance_microusd(service.settings.max_request_usd)
+        if service.settings.spend_control == "application"
+        else None,
+        daily_limit_microusd=allowance_microusd(service.settings.daily_budget_usd)
+        if service.settings.spend_control == "application"
+        else None,
         simulated=service.settings.provider_mode == "mock",
         conversations=totals,
     )

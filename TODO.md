@@ -4,11 +4,11 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## External verification prerequisites
 
-- [ ] Verify the remaining live vision/document/comparison/media flows only within approved modality allowances. Acceptance: sanitized real status and cost evidence; include the recorded interactive text smoke cost in cumulative test planning.
+- [ ] Verify remaining live vision/document/comparison/media flows within the shared provider key budget. Acceptance: sanitized real status/cost evidence and refreshed provider remainder, including usage outside this application.
 
 ## M4: Image generation
 
-- [ ] Confirm an approved image-test allowance, generate one live image and verify its saved output after reload. Acceptance: sanitized real status and cost evidence; M4 stays incomplete until this passes.
+- [ ] Generate one live image under the verified shared provider key budget and check its saved output after reload. Acceptance: sanitized real status/cost/download evidence; normal owner sign-in is required and M4 stays incomplete until this passes.
 - [ ] Complete the M4 live exit gate, then merge the draft PR remotely and record retained-branch evidence. CI and local verification already pass.
 
 ## M5: Video generation
@@ -42,7 +42,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## M8: Production rollout
 
-- [ ] Verify restricted key, approved numeric budgets, secure identity, origin TLS and deployment access without echoing secrets.
+- [ ] Verify restricted key and its approved shared total budget, secure identity, origin TLS and deployment access without echoing secrets.
 - [ ] Lock release, verify exact source, publish immutable next tag and recheck production baseline. Acceptance: digest/source/tag and dry-run/diff evidence recorded.
 - [ ] Deploy exact image and inspect rollout, edge/origin TLS, auth and protected reads. Acceptance: real hostname works on mobile and direct-origin access cannot bypass auth.
 - [ ] Verify history/media persistence and compatible rollback with consistent backup. Acceptance: restart checks pass without deleting production data.

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     provider_mode: Literal["mock", "openrouter"] = "mock"
     openrouter_api_key: SecretStr = SecretStr("")
     openrouter_api_key_file: Path | None = None
+    spend_control: Literal["application", "provider"] = "application"
     max_request_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
     live_test_budget_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
     daily_budget_usd: Decimal = Field(default=Decimal("0"), ge=0, le=1000)

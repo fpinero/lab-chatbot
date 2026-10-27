@@ -878,6 +878,12 @@ export interface components {
     };
     /** ImageQuote */
     ImageQuote: {
+      /**
+       * Spend Control
+       * @default application
+       * @enum {string}
+       */
+      spend_control: "application" | "provider";
       /** Estimated Microusd */
       estimated_microusd: number | null;
       /** Reservation Microusd */
@@ -1072,6 +1078,17 @@ export interface components {
       /** Simulated */
       simulated: boolean;
     };
+    /** ProviderKeyBudget */
+    ProviderKeyBudget: {
+      /** Limit Usd */
+      limit_usd: string;
+      /** Remaining Usd */
+      remaining_usd: string;
+      /** Used Usd */
+      used_usd: string;
+      /** Checked At */
+      checked_at: number;
+    };
     /** RunInfo */
     RunInfo: {
       /** Id */
@@ -1183,6 +1200,12 @@ export interface components {
     };
     /** UploadLimits */
     UploadLimits: {
+      /**
+       * Spend Control
+       * @default application
+       * @enum {string}
+       */
+      spend_control: "application" | "provider";
       /** Files */
       files: number;
       /** File Bytes */
@@ -1197,6 +1220,13 @@ export interface components {
     /** UsageInfo */
     UsageInfo: {
       /**
+       * Spend Control
+       * @default application
+       * @enum {string}
+       */
+      spend_control: "application" | "provider";
+      provider_key_budget?: components["schemas"]["ProviderKeyBudget"] | null;
+      /**
        * Currency
        * @default USD
        * @constant
@@ -1209,9 +1239,9 @@ export interface components {
       /** Uncertain Count */
       uncertain_count: number;
       /** Request Limit Microusd */
-      request_limit_microusd: number;
+      request_limit_microusd: number | null;
       /** Daily Limit Microusd */
-      daily_limit_microusd: number;
+      daily_limit_microusd: number | null;
       /** Simulated */
       simulated: boolean;
       /** Conversations */

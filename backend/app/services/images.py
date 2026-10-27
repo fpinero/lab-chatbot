@@ -49,6 +49,7 @@ class ImageStart(ImageInput):
 
 
 class ImageQuote(BaseModel):
+    spend_control: Literal["application", "provider"] = "application"
     estimated_microusd: int | None
     reservation_microusd: int | None
     uncertain: bool
@@ -260,12 +261,17 @@ class ImageService:
             elif line.cost_usd:
                 uncertain = True
         estimated = microusd(known) if not uncertain else None
+        provider_control = self.settings.spend_control == "provider" and not simulated
         allowance = allowance_microusd(self.settings.image_request_allowance_usd)
-        reservation = allowance if uncertain and allowance else estimated
+        if provider_control:
+            allowance = self.runs.provider_remainder()
+        reservation = allowance if uncertain and (allowance or provider_control) else estimated
         if simulated and reservation is None:
             reservation = 1000
         reason = None
-        if reservation is None:
+        if provider_control and (allowance <= 0 or (reservation or 0) > allowance):
+            reason = "The estimate exceeds the remaining OpenRouter key budget."
+        elif reservation is None:
             reason = "Configure an approved image request allowance for uncertain pricing."
         elif reservation < microusd(known):
             reason = "The configured image allowance is below known billing dimensions."
@@ -274,11 +280,14 @@ class ImageService:
             and reservation > body.request_allowance_microusd
         ):
             reason = "The estimate exceeds this explicit request allowance."
-        elif not simulated and (
-            self.settings.max_request_usd <= 0 or self.settings.daily_budget_usd <= 0
+        elif (
+            not simulated
+            and self.settings.spend_control == "application"
+            and (self.settings.max_request_usd <= 0 or self.settings.daily_budget_usd <= 0)
         ):
             reason = "Configure approved request and daily spending limits."
         return ImageQuote(
+            spend_control=self.settings.spend_control,
             estimated_microusd=estimated,
             reservation_microusd=reservation,
             uncertain=uncertain,
@@ -304,6 +313,8 @@ class ImageService:
         return [turn], [self.files.info(item) for item in references]
 
     async def preview(self, owner: str, body: ImageInput) -> ImageQuote:
+        if self.settings.spend_control == "provider":
+            await self.runs.refresh_provider_budget()
         details = await self.catalog.endpoints(body.model_id)
         endpoint = self.validate(body, details)
         with Session(self.engine) as db:

@@ -17,24 +17,32 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True)
     parser.add_argument("--provider", required=True)
-    parser.add_argument("--max-usd", required=True, type=Decimal)
+    parser.add_argument(
+        "--max-usd", type=Decimal, help="Optional one-off cap in provider mode"
+    )
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
+    provider_control = os.environ.get("SPEND_CONTROL", "application") == "provider"
     approved = Decimal(os.environ.get("LIVE_TEST_BUDGET_USD", "0"))
-    if (
-        not approved.is_finite()
+    if not provider_control and (
+        args.max_usd is None
+        or not approved.is_finite()
         or not args.max_usd.is_finite()
         or not 0 < args.max_usd <= approved
     ):
         raise SystemExit(
             "Set an approved LIVE_TEST_BUDGET_USD and a positive --max-usd within it."
         )
-    limit = int((args.max_usd * 1000000).to_integral_value(rounding=ROUND_FLOOR))
-    if limit < 1:
-        raise SystemExit("The allowance must be at least one micro-USD.")
+    limit = None
+    if args.max_usd is not None:
+        if not args.max_usd.is_finite() or args.max_usd <= 0:
+            raise SystemExit("The explicit allowance must be positive and finite.")
+        limit = int((args.max_usd * 1_000_000).to_integral_value(rounding=ROUND_FLOOR))
+        if limit < 1:
+            raise SystemExit("The allowance must be at least one micro-USD.")
     if not args.execute:
         print(
-            "Plan: one authenticated image job with the smallest advertised tier and supplied allowance."
+            "Plan: one authenticated image job with the smallest advertised tier within the verified server spending policy."
         )
         return
     origin = os.environ.get("APP_ORIGIN", "http://127.0.0.1:5173")
@@ -195,7 +203,7 @@ def main() -> None:
                     raise SystemExit(
                         "Live verification is incomplete. Inspect saved status and billing evidence."
                     )
-                if job["actual_microusd"] > limit:
+                if limit is not None and job["actual_microusd"] > limit:
                     raise SystemExit(
                         "Reported cost exceeded the allowance. Do not run another test."
                     )

@@ -75,6 +75,8 @@ class ImageCatalog:
         fetch: Callable[[], Awaitable[list[dict[str, Any]]]],
         refresh: bool = False,
     ) -> tuple[list[dict[str, Any]], int, bool]:
+        if self.settings.spend_control == "provider":
+            family = f"provider:{family}"
         if (
             self.settings.provider_mode == "openrouter"
             and not self.settings.openrouter_api_key.get_secret_value()
@@ -195,7 +197,7 @@ class ImageCatalog:
                         parameters=params,
                         pricing=raw.get("pricing", []),
                     )
-                    if any(
+                    if self.settings.spend_control == "application" and any(
                         price.cost_usd > self.settings.image_price_ceiling_usd
                         for price in endpoint.pricing
                     ):

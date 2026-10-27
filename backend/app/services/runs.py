@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth.service import AuthError, digest
 from app.config import Settings
 from app.models import AuthBucket, Charge, Conversation, MediaJob, Run, RunAttachment
-from app.providers.chat import ChatProvider, ProviderError
+from app.providers.chat import ChatProvider, ProviderError, ProviderKeyBudget
 from app.services.attachments import AttachmentInfo, AttachmentService
 from app.services.catalog import CatalogService, ModelInfo
 
@@ -130,6 +130,7 @@ class RunService:
             now,
         )
         self.attachments = attachments
+        self.provider_budget: ProviderKeyBudget | None = None
         self.slots = asyncio.Semaphore(2)
         self.tasks: dict[str, asyncio.Task[None]] = {}
         self.closing = False
@@ -234,6 +235,8 @@ class RunService:
             for key, value in prices.items()
             if key not in {"prompt", "completion", "request", "image"}
         ):
+            if self.settings.spend_control == "provider" and not model.simulated:
+                return self.provider_remainder()
             raise AuthError(
                 422,
                 "unknown_price",
@@ -245,6 +248,8 @@ class RunService:
             + prices.get("request", Decimal(0))
         )
         if image_references and not model.simulated:
+            if self.settings.spend_control == "provider":
+                return self.provider_remainder()
             allowance = allowance_microusd(self.settings.vision_request_allowance_usd)
             if allowance <= 0 or allowance < estimate:
                 raise AuthError(
@@ -318,67 +323,88 @@ class RunService:
         count: int = 1,
     ) -> None:
         now = self.now()
-        request_limit = (
-            allowance_microusd(self.settings.max_request_usd) if not simulated else 1_000_000
-        )
-        daily_limit = (
-            allowance_microusd(self.settings.daily_budget_usd) if not simulated else 10_000_000
-        )
-        start_of_day = now // 86400 * 86400
-        total = (
-            db.scalar(
-                select(
-                    func.coalesce(
-                        func.sum(
-                            case(
-                                (Charge.actual_microusd.is_not(None), Charge.actual_microusd),
-                                else_=Charge.reserved_microusd,
-                            )
-                        ),
-                        0,
-                    )
-                ).where(
-                    Charge.owner_id == owner,
-                    or_(
-                        Charge.created_at >= start_of_day,
-                        Charge.state.in_(["reserved", "uncertain"]),
-                    ),
+        if self.settings.spend_control == "provider" and not simulated:
+            if self.provider_budget is None:
+                raise AuthError(
+                    503, "provider_budget_unavailable", "Verify the OpenRouter key budget first."
                 )
+            outstanding = int(
+                db.scalar(
+                    select(func.coalesce(func.sum(Charge.reserved_microusd), 0)).where(
+                        Charge.owner_id == owner, Charge.state.in_(["reserved", "uncertain"])
+                    )
+                )
+                or 0
             )
-            or 0
-        )
-        if reservation > request_limit or int(total) + reservation > daily_limit:
-            raise AuthError(
-                402, "budget_limit", "This request exceeds the configured spending allowance."
+            remaining = allowance_microusd(self.provider_budget.remaining_usd)
+            if remaining <= 0 or outstanding + reservation > remaining:
+                raise AuthError(
+                    402,
+                    "provider_budget_limit",
+                    "The request and outstanding reservations exceed the OpenRouter key remainder.",
+                )
+        else:
+            request_limit = (
+                allowance_microusd(self.settings.max_request_usd) if not simulated else 1_000_000
             )
-        if verification and not simulated:
-            verification_total = (
+            daily_limit = (
+                allowance_microusd(self.settings.daily_budget_usd) if not simulated else 10_000_000
+            )
+            start_of_day = now // 86400 * 86400
+            total = (
                 db.scalar(
                     select(
                         func.coalesce(
                             func.sum(
                                 case(
-                                    (
-                                        Charge.actual_microusd.is_not(None),
-                                        Charge.actual_microusd,
-                                    ),
+                                    (Charge.actual_microusd.is_not(None), Charge.actual_microusd),
                                     else_=Charge.reserved_microusd,
                                 )
                             ),
                             0,
                         )
-                    ).where(Charge.owner_id == owner, Charge.purpose == "verification")
+                    ).where(
+                        Charge.owner_id == owner,
+                        or_(
+                            Charge.created_at >= start_of_day,
+                            Charge.state.in_(["reserved", "uncertain"]),
+                        ),
+                    )
                 )
                 or 0
             )
-            if int(verification_total) + reservation > allowance_microusd(
-                self.settings.live_test_budget_usd
-            ):
+            if reservation > request_limit or int(total) + reservation > daily_limit:
                 raise AuthError(
-                    402,
-                    "live_test_budget",
-                    "The cumulative live verification allowance is exhausted or unconfigured.",
+                    402, "budget_limit", "This request exceeds the configured spending allowance."
                 )
+            if verification and not simulated:
+                verification_total = (
+                    db.scalar(
+                        select(
+                            func.coalesce(
+                                func.sum(
+                                    case(
+                                        (
+                                            Charge.actual_microusd.is_not(None),
+                                            Charge.actual_microusd,
+                                        ),
+                                        else_=Charge.reserved_microusd,
+                                    )
+                                ),
+                                0,
+                            )
+                        ).where(Charge.owner_id == owner, Charge.purpose == "verification")
+                    )
+                    or 0
+                )
+                if int(verification_total) + reservation > allowance_microusd(
+                    self.settings.live_test_budget_usd
+                ):
+                    raise AuthError(
+                        402,
+                        "live_test_budget",
+                        "The cumulative live verification allowance is exhausted or unconfigured.",
+                    )
         active = (
             db.scalar(
                 select(func.count())
@@ -423,6 +449,11 @@ class RunService:
         now = self.now()
         request_hash = digest(json.dumps(body.model_dump(), sort_keys=True))
         run_id = uuid4().hex
+        key_remainder = (
+            self.settings.spend_control == "provider"
+            and not model.simulated
+            and reservation == self.provider_remainder()
+        )
         settings = {
             "enqueued_at_ms": time.time_ns() // 1000000,
             "max_tokens": body.max_tokens,
@@ -439,7 +470,9 @@ class RunService:
                 self.attachments.info(item).model_dump()
                 for item in self.attachments.references(db, owner, messages)
             ],
-            "estimate_kind": "vision_allowance"
+            "estimate_kind": "provider_key_remainder"
+            if key_remainder
+            else "vision_allowance"
             if any(
                 message.get("_attachments")
                 and any(item["kind"] == "image" for item in message["_attachments"])
@@ -508,13 +541,35 @@ class RunService:
         ):
             raise AuthError(422, "output_limit", "Reduce the output token limit.")
 
+    async def refresh_provider_budget(self, refresh: bool = False) -> ProviderKeyBudget:
+        try:
+            budget = await self.provider.key_budget(refresh=refresh)
+        except ProviderError:
+            raise AuthError(
+                503,
+                "provider_budget_unavailable",
+                "Verify a restricted OpenRouter key with a fixed total budget "
+                "and readable remaining credit.",
+            ) from None
+        self.provider_budget = budget
+        return budget
+
+    def provider_remainder(self) -> int:
+        if self.provider_budget is None:
+            raise AuthError(
+                503, "provider_budget_unavailable", "Refresh the OpenRouter key budget first."
+            )
+        return allowance_microusd(self.provider_budget.remaining_usd)
+
     async def authorize_dispatch(self) -> None:
         if self.closing:
             raise AuthError(503, "shutting_down", "The service is restarting. Try again later.")
         if self.settings.provider_mode == "openrouter" and (
             not self.settings.openrouter_api_key.get_secret_value()
-            or self.settings.max_request_usd <= 0
-            or self.settings.daily_budget_usd <= 0
+            or (
+                self.settings.spend_control == "application"
+                and (self.settings.max_request_usd <= 0 or self.settings.daily_budget_usd <= 0)
+            )
         ):
             raise AuthError(
                 503,
@@ -523,6 +578,8 @@ class RunService:
             )
         try:
             await self.provider.authorize()
+            if self.settings.spend_control == "provider":
+                await self.refresh_provider_budget(refresh=True)
         except ProviderError:
             raise AuthError(
                 503,
@@ -658,13 +715,14 @@ class RunService:
                     "provider": {
                         "require_parameters": True,
                         "allow_fallbacks": True,
-                        "max_price": {
-                            "prompt": Decimal(prices["prompt"]) * 1_000_000,
-                            "completion": Decimal(prices["completion"]) * 1_000_000,
-                            "request": Decimal(prices.get("request", "0")),
-                        },
                     },
                 }
+                if self.settings.spend_control == "application":
+                    payload["provider"]["max_price"] = {
+                        "prompt": Decimal(prices["prompt"]) * 1_000_000,
+                        "completion": Decimal(prices["completion"]) * 1_000_000,
+                        "request": Decimal(prices.get("request", "0")),
+                    }
                 if parameters["temperature"] is not None:
                     payload["temperature"] = parameters["temperature"]
                 db.commit()

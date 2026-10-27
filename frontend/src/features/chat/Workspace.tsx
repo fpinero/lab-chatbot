@@ -369,6 +369,39 @@ export default function Workspace({
             <span className="eyebrow">
               {usage.simulated ? copy.simulated : copy.usage}
             </span>
+            {usage.spend_control === "provider" && !usage.simulated && (
+              <>
+                <p>{copy.providerSpending}</p>
+                {usage.provider_key_budget ? (
+                  <>
+                    <p>
+                      {copy.providerKeyLimit}: $
+                      {Number(usage.provider_key_budget.limit_usd).toFixed(2)}
+                    </p>
+                    <p>
+                      {copy.providerKeyRemaining}: $
+                      {Number(usage.provider_key_budget.remaining_usd).toFixed(
+                        6,
+                      )}
+                    </p>
+                    <small>
+                      {copy.budgetChecked}:{" "}
+                      {new Date(
+                        usage.provider_key_budget.checked_at * 1000,
+                      ).toLocaleTimeString()}
+                    </small>
+                  </>
+                ) : (
+                  <p>{copy.providerBudgetUnavailable}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void refreshUsage().catch(failed)}
+                >
+                  {copy.refreshUsage}
+                </button>
+              </>
+            )}
             <p>
               {copy.daily}: {usd(usage.daily_actual_microusd)}
             </p>
