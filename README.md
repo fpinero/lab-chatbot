@@ -1,6 +1,6 @@
 # Lab chatbot
 
-A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming chat, screenshots/documents, model comparisons, image jobs, persistent history and transactional spend reservations. The OpenRouter text/vision and dedicated image adapters are implemented; live provider verification is pending. No paid call or deployment is performed by the default test suite.
+A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming chat, screenshots/documents, model comparisons, image jobs, persistent history and transactional spend reservations. The OpenRouter text/vision and dedicated image adapters are implemented. One authenticated local browser text flow is live-verified; the remaining paid modalities are pending. No paid call or deployment is performed by the default test suite.
 
 ## Local development
 
@@ -68,7 +68,7 @@ npm --prefix frontend run format
 
 Keep `.env` files, private policies, local notes, credentials, conversations, exports and backups outside Git. Container packaging will use explicit source paths. Provider credentials must remain on the backend.
 
-`TODO.md` contains pending work. `avances.md` records verified work and integration. Mock checks do not establish provider or account availability. Live provider verification, packaging and deployment remain pending.
+`TODO.md` contains pending work. `avances.md` records verified work and integration. Mock checks do not establish provider or account availability. Live verification beyond the first browser text flow, packaging and deployment remain pending.
 
 ## Text chat and spend controls
 
@@ -123,4 +123,4 @@ uv run --project backend python scripts/live-image.py \
 
 Its default only prints a plan and cannot construct an HTTP client. `--execute` performs one image request with the smallest advertised tier and an explicit request allowance, checks the authenticated download and records sanitized status/cost evidence in ignored `artifacts/live-image.json`. Unknown cost or an incomplete output causes a failed verification result without an automatic retry. Configure any required uncertain image allowance on the backend first.
 
-Live text, vision, comparison and image verification is currently pending because credentials and approved numeric budgets have not been supplied. Video generation, container release validation and deployment remain pending milestones.
+One authenticated browser text smoke check passed with a restricted provider key and approved limits. It verified a completed response, actual usage/cost, persisted history after reload and exactly one generation. This was ordinary interactive workspace usage, not the opt-in CLI verification path; its cost must be included when planning the remaining cumulative test allowance. Vision/document/comparison/image verification, video generation, container release validation and deployment remain pending.

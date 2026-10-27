@@ -4,11 +4,11 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## External verification prerequisites
 
-- [ ] Install a restricted provider key privately and obtain approved request/daily/cumulative live-test budgets. Acceptance: opt-in real text/vision/comparison/media checks record sanitized status and actual cost; no mock result is reported as live evidence.
+- [ ] Verify the remaining live vision/document/comparison/media flows only within approved modality allowances. Acceptance: sanitized real status and cost evidence; include the recorded interactive text smoke cost in cumulative test planning.
 
 ## M4: Image generation
 
-- [ ] Obtain restricted credentials and approved budgets, then generate one live image and verify its saved output after reload. Acceptance: sanitized real status and cost evidence; M4 stays incomplete until this passes.
+- [ ] Confirm an approved image-test allowance, generate one live image and verify its saved output after reload. Acceptance: sanitized real status and cost evidence; M4 stays incomplete until this passes.
 - [ ] Complete the M4 live exit gate, then merge the draft PR remotely and record retained-branch evidence. CI and local verification already pass.
 
 ## M5: Video generation

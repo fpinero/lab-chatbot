@@ -115,3 +115,13 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Added rejection after normalization and retained the three regression fixtures. Full local verification now passes 106 backend tests, 4 frontend tests and 7 browser scenarios (one intentional desktop skip), plus formatting/types/build/contract checks.
 - All 51 image/attachment/comparison/migration tests pass in the Linux ARM64 check container with the corrected public files mounted read-only. Network is disabled and the process is non-root. No paid provider call ran.
 - Recorded explicit custom database-path/static-root validation in the M6 hardening queue; the current tests verify the normal private data-directory layout. Production packaging and release remain pending.
+
+## 2026-10-27: First live authenticated browser text check
+
+- The owner installed a restricted provider key and approved first-text spending limits in excluded local configuration. Verified that configuration and the owner hash load correctly with private file permissions; no credential values were printed or committed.
+- Started the real loopback backend/frontend. The owner signed in through the normal application UI. Health/readiness and private-route denial without a session pass; authentication was not bypassed.
+- Executed exactly one interactive browser request with `mistralai/mistral-nemo`, a 32-token output ceiling and no attachments. DekaLLM returned a completed result with 9 input and 3 output tokens. OpenRouter reported USD 0.000000252; integer ledger accounting conservatively rounded this to one micro-USD, against a 12-micro-USD reservation.
+- Reloaded and reopened saved history. The completed answer, original model/provider, usage and cost remained available. A read-only SQLite check confirmed exactly one generation, settled billing and no outstanding reservation. No automatic or manual retry was sent.
+- Saved sanitized metadata and an actual browser capture to excluded `artifacts/live-text-browser.json` and `artifacts/live-text-browser.jpg`. Neither includes credentials or session tokens. Prompt/response contents are not copied into this public log.
+- This was an ordinary interactive workspace charge, not a CLI verification-purpose charge. Its one-micro-USD ledger cost must be included in future cumulative test planning; the approved first-text test allowance has 19,999 micro-USD remaining after this smoke check.
+- Updated pending tasks and public status to distinguish this first successful live text check from the unverified remaining modalities. M4 stays a draft until its approved live-image gate is satisfied. No deployment or additional paid call occurred.
