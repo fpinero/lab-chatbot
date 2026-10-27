@@ -2,7 +2,7 @@
 
 Only pending work belongs here. Each milestone starts after the preceding milestone is verified and integrated remotely. Keep every milestone branch for at least seven days after merge, with no automatic cleanup.
 
-The owner explicitly requested deployment-file preparation ahead of the remaining application milestones. Stop this handoff before registry publication or persistent Kubernetes writes; resume staged deployment only in the next owner-directed session.
+The owner authorized the first staged deployment from integrated main, ahead of the remaining application milestones. Version 1 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
 
 ## External verification prerequisites
 
@@ -29,18 +29,10 @@ The owner explicitly requested deployment-file preparation ahead of the remainin
 
 ## M7: Deployment preparation
 
-- [ ] Resolve registry publication/pull access and origin TLS for staged deployment. Context, ARM64 nodes, Traefik class/entrypoints, storage and the supplied working Ingress have been inspected.
-- [ ] Run server-side dry-run and redacted diff after the owner-directed namespace bootstrap. Local Kustomize/schema validation does not prove namespaced API admission before that namespace exists.
-- [ ] Verify the prepared release scripts against real registry publication and namespaced Lease/CAS operations during staged deployment. Keep RELEASE_READY=false until the intended integrated application release is ready.
-- [ ] Verify real first rollout, registry tag/digest receipt, public HTTPS, owner sign-in and authenticated reads. Error/collision/concurrency paths have synthetic regression coverage; actual publication and deployment remain unexecuted.
-- [ ] Review the fresh live-state release plan and the remaining registry/origin prerequisites before the owner-directed first deployment. The current read-only plan identifies initial tag 1 and the absent labchatbot namespace.
-- [ ] Integrate M7 with CI, PR, remote merge and branch retention evidence.
+- [ ] Verify real Deployment CAS updates, next-tag derivation and receipt-guided rollback before the first application update. Publication, release Lease, first Deployment creation and the initial rollout are verified; update/collision/recovery regressions remain synthetic until exercised against a later release.
+- [ ] Integrate any resulting deployment follow-up changes through CI and PR, retaining branches.
 
 ## M8: Production rollout
 
-- [ ] Verify restricted key and its approved shared total budget, secure identity, origin TLS and deployment access without echoing secrets.
-- [ ] Lock release, verify exact source, publish immutable next tag and recheck production baseline. Acceptance: digest/source/tag and dry-run/diff evidence recorded.
-- [ ] Deploy exact image and inspect rollout, edge/origin TLS, auth and protected reads. Acceptance: real hostname works on mobile and direct-origin access cannot bypass auth.
-- [ ] Verify history/media persistence and compatible rollback with consistent backup. Acceptance: restart checks pass without deleting production data.
+- [ ] Verify representative saved history/media and encrypted backup/restore before application updates. The real first pod replacement preserved the PVC, SQLite integrity, owner session and a temporary private file; production media recovery and compatible image rollback still require representative content and a reviewed maintenance window.
 - [ ] Run only budgeted live modality checks and report unavailable account capabilities explicitly.
-- [ ] Record revision/digest/old-new tags/fingerprint and outstanding limitations. Acceptance: local and production status reported separately.
