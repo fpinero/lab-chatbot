@@ -105,3 +105,6 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Reviewed staged source and exclusions for provider keys, private policy values, local notes and forbidden punctuation. The private brief, configuration, runtime data and evidence remain excluded.
 - Checked presence without echoing values: no provider key/file, approved request limit, daily allowance or cumulative live-test budget is installed in the current environment. No paid provider test can run safely.
 - The draft explicitly preserves the required live-image exit gate. CI/review inspection remains part of this open PR; M5 has not started because milestones must be completed and integrated sequentially. No production release or deployment occurred.
+
+- M4 CI run `40424832791` passed on `51edef19fb35ca9edcedc2b19fe68894eee07dd6`. No review comments or requested reviews remain. Cancelled only the superseded run `40424777419`; the current verification completed successfully.
+- Confirmed all M0-M4 working branches are retained locally and remotely. The current M4 PR remains a draft and unmerged solely because the mandatory approved live-image evidence is unavailable. No secret or budget was inferred from elapsed time or standing repository authorization.
