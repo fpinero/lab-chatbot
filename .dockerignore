@@ -1,4 +1,10 @@
 .git
+k8s
+docs
+TODO.md
+avances.md
+lessons.md
+frontend/test-results
 .idea
 .agents
 .codex

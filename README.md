@@ -1,6 +1,6 @@
 # Lab chatbot
 
-A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming chat, screenshots/documents, model comparisons, image jobs, persistent history and transactional spend reservations. The OpenRouter text/vision and dedicated image adapters are implemented. One authenticated local browser text flow is live-verified; the remaining paid modalities are pending. No paid call or deployment is performed by the default test suite.
+A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming chat, screenshots/documents, model comparisons, image jobs, persistent history and transactional spend reservations. The OpenRouter text/vision and dedicated image adapters are implemented. Authenticated local browser text and image flows are live-verified; the remaining paid modalities are pending. No paid call or deployment is performed by the default test suite.
 
 ## Local development
 
@@ -66,9 +66,9 @@ npm --prefix frontend run format
 
 ## Privacy and status
 
-Keep `.env` files, private policies, local notes, credentials, conversations, exports and backups outside Git. Container packaging will use explicit source paths. Provider credentials must remain on the backend.
+Keep `.env` files, private policies, local notes, credentials, conversations, exports and backups outside Git. Container packaging uses explicit source paths. Provider credentials must remain on the backend.
 
-`TODO.md` contains pending work. `avances.md` records verified work and integration. Mock checks do not establish provider or account availability. Live verification beyond the first browser text flow, packaging and deployment remain pending.
+`TODO.md` contains pending work. `avances.md` records verified work and integration. Mock checks do not establish provider or account availability. See [Kubernetes preparation](k8s/README.md) for the local container, private deployment configuration, read-only planning and explicitly executed release phases. Preparation does not deploy or establish production readiness; remaining live modalities, application milestones and staged production checks remain pending.
 
 ## Text chat and spend controls
 

@@ -2,6 +2,8 @@
 
 Only pending work belongs here. Each milestone starts after the preceding milestone is verified and integrated remotely. Keep every milestone branch for at least seven days after merge, with no automatic cleanup.
 
+The owner explicitly requested deployment-file preparation ahead of the remaining application milestones. Stop this handoff before registry publication or persistent Kubernetes writes; resume staged deployment only in the next owner-directed session.
+
 ## External verification prerequisites
 
 - [ ] Verify remaining live vision/document/comparison/video flows within the shared provider key budget. Acceptance: sanitized real status/cost evidence and refreshed provider remainder, including usage outside this application.
@@ -18,9 +20,8 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 ## M6: Local release candidate
 
 - [ ] Validate custom SQLite URL paths against compiled static locations, including URI/override cases. Acceptance: startup rejects every writable database/data path under public assets before opening storage.
-- [ ] Package explicit-source multi-stage image and loopback Compose with named volume. Acceptance: non-root/read-only execution and no secrets/private brief in image.
 - [ ] Add storage/rate/concurrency limits, sanitized request IDs and local readiness. Acceptance: pressure and bounded queue behavior are tested.
-- [ ] Add consistent SQLite/file backup and isolated restore. Acceptance: restart preserves sessions/history/media and restore reproduces referenced data.
+- [ ] Exercise encrypted backup and isolated restore with representative real application history/media during a reviewed maintenance window. Synthetic SQLite/file recovery is covered; production data must not be replaced automatically.
 - [ ] Finish themes, focus, keyboard, copy/export, responsive composer and recovery. Acceptance: inspect desktop/360 px screenshots and full browser suite.
 - [ ] Prioritize Chrome on Google Pixel 10 Pro for mobile validation. Acceptance: keep message input and Send reachable with the real Android keyboard open, avoid reduced-height internal-scroll dependence, check portrait/landscape and enlarged text, and record physical-device evidence separately from viewport emulation.
 - [ ] Run full checks and actual container verification. Acceptance: exact source fingerprint and real results recorded with external limitations explicit.
@@ -28,12 +29,11 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## M7: Deployment preparation
 
-- [ ] Inspect working Ingress and cluster versions/class/entrypoints/architecture/storage/registry/TLS. Acceptance: read-only evidence replaces assumptions; request missing example path when needed.
-- [ ] Prepare scoped Kustomize manifests with single Recreate replica, PVC and hardened existing Traefik integration. Acceptance: render/schema/server-side dry-run/diff pass without exposing Secrets.
-- [ ] Implement read-only release planner and explicit build/push/deploy phases. Acceptance: source gate, distributed lock, production-derived integer tag, collisions, architecture and optimistic concurrency tests pass.
-- [ ] Test first deploy, inaccessible/forbidden cluster, registry ports, collision/reuse and concurrency. Acceptance: only confirmed NotFound permits initial tag; existing tags never overwritten.
-- [ ] Document prerequisites, secrets, TLS, rollout/rollback, backups and diagnosis in k8s/README.md. Acceptance: no private authentication details or credentials in public docs.
-- [ ] Produce concrete live-state release plan and collect missing identity/budget/registry prerequisites.
+- [ ] Resolve registry publication/pull access and origin TLS for staged deployment. Context, ARM64 nodes, Traefik class/entrypoints, storage and the supplied working Ingress have been inspected.
+- [ ] Run server-side dry-run and redacted diff after the owner-directed namespace bootstrap. Local Kustomize/schema validation does not prove namespaced API admission before that namespace exists.
+- [ ] Verify the prepared release scripts against real registry publication and namespaced Lease/CAS operations during staged deployment. Keep RELEASE_READY=false until the intended integrated application release is ready.
+- [ ] Verify real first rollout, registry tag/digest receipt, public HTTPS, owner sign-in and authenticated reads. Error/collision/concurrency paths have synthetic regression coverage; actual publication and deployment remain unexecuted.
+- [ ] Review the fresh live-state release plan and the remaining registry/origin prerequisites before the owner-directed first deployment. The current read-only plan identifies initial tag 1 and the absent labchatbot namespace.
 - [ ] Integrate M7 with CI, PR, remote merge and branch retention evidence.
 
 ## M8: Production rollout

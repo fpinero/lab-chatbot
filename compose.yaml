@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    image: lab-chatbot:local
+    ports:
+      - "127.0.0.1:8080:8000"
+    environment:
+      APP_ENV: development
+      APP_ORIGIN: http://127.0.0.1:8080
+      PROVIDER_MODE: mock
+      SPEND_CONTROL: provider
+      AUTH_MODE: password
+      AUTH_PASSWORD_HASH_FILE: /run/secrets/owner.hash
+      DATA_DIR: /data
+    secrets:
+      - source: owner_hash
+        target: owner.hash
+    volumes:
+      - app-data:/data
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 2g
+    cpus: 1
+    stop_grace_period: 40s
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+secrets:
+  owner_hash:
+    file: ./private/deploy/owner.hash
+volumes:
+  app-data:

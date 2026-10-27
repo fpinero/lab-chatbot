@@ -5,6 +5,9 @@
 !.env.example
 *.policy.json
 private/
+docs/referencia-ejemplos-k8s/
+.venv-deploy/
+k8s/*.local.json
 .idea/
 .DS_Store
 *.pem

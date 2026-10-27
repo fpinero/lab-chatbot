@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: labchatbot-config
+  namespace: labchatbot
+data:
+  APP_ENV: production
+  APP_ORIGIN: https://labchatbot.nivelepsilon.com
+  PROVIDER_MODE: openrouter
+  SPEND_CONTROL: provider
+  AUTH_MODE: password
+  AUTH_PASSWORD_HASH_FILE: /run/secrets/owner.hash
+  OPENROUTER_API_KEY_FILE: /run/secrets/openrouter.key
+  DATA_DIR: /data
+  TRUSTED_PROXY_NETWORKS: "[]"
+  STORAGE_CEILING_BYTES: "5368709120"
+  MEDIA_RETENTION_DAYS: "30"

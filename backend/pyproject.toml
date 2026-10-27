@@ -22,6 +22,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "pyyaml==6.0.3",
   "types-simplejson>=3.20,<4",
   "mypy>=1.19,<2",
   "pytest>=9,<10",

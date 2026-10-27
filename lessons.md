@@ -15,3 +15,10 @@
 
 - A browser click completes before an asynchronous logout request necessarily finishes. Wait for the signed-out UI before asserting that private downloads are denied.
 - Verify global concurrency by holding occupied slots behind an explicit synchronization gate. Fixed sleeps and minimum queue-delay thresholds can become flaky when database or catalog work takes longer.
+
+
+## 2026-10-27: Deployment preparation and backup recovery
+
+- Resolve backup destination parents before comparing against the live data directory. A symlink alias must not place staging/archive files inside the directory being copied.
+- Test backup, restore and backup again. Archive-control metadata must not become inconsistent application content on the second snapshot.
+- A release verification fingerprint must be computed for frozen public sources. Edits during a build must invalidate the evidence rather than certify a different final tree.
