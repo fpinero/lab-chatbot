@@ -147,3 +147,12 @@ Entries are append-only. Record verified work and evidence without credentials o
 - CI run 40493416169 passed on provider-budget source `552aa613312f5326294d6076359a6be539e6942d`, which already passed 121 backend tests, 7 browser scenarios and 64 restricted Linux ARM64 checks. Final browser/CI integration checks follow the presentation correction before merge. Production deployment remains pending.
 
 - Additional live verification: after restarting the real backend, the owner session and original completed image remained available. The browser decoded the saved 1024 by 1024 output, with exactly one image job and no outstanding or uncertain charges. OpenRouter subsequently reported USD 9.827206165 remaining after the USD 0.0184 image charge. All 7 final browser scenarios pass (one intentional desktop skip), including authenticated download and reload workflows.
+
+
+## 2026-10-27: M4 integrated remotely
+
+- PR https://github.com/fpinero/lab-chatbot/pull/5 merged at 2026-10-27T11:19:28Z. Remote merge commit: `0e11f19751fcc4d9231c7f7defa344fe120256a7`. Verified source head: `ca059fd218377c0491f4bb911efacd370fd45398`.
+- Final CI run 40494860966 passed on that exact head, including the complete local-verification workflow. No required review or unresolved thread remained. The live image, authenticated download, browser reload and real backend restart exit checks passed before integration.
+- Confirmed remote merged state and synchronized local main by fast-forward. The integrated tree matches the verified source. Removed completed M4 work from TODO.md and opened `feature/m5-video-generation` from the integrated main for subsequent work.
+- Retained `feature/m4-image-generation` locally and remotely at `ca059fd218377c0491f4bb911efacd370fd45398`. Earliest retention end is 2026-11-03T11:19:28Z. Automatic branch deletion is disabled; no cleanup is scheduled or authorized.
+- M4 is complete. The live local application remains available with the original saved image and shared provider budget. Video implementation, production containers and deployment remain pending; no production release occurred.

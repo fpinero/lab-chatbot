@@ -4,11 +4,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## External verification prerequisites
 
-- [ ] Verify remaining live vision/document/comparison/media flows within the shared provider key budget. Acceptance: sanitized real status/cost evidence and refreshed provider remainder, including usage outside this application.
-
-## M4: Image generation
-
-- [ ] Merge the verified M4 PR remotely and record retained-branch evidence. The live image/download/reload gate now passes; inspect final CI and review status before integration.
+- [ ] Verify remaining live vision/document/comparison/video flows within the shared provider key budget. Acceptance: sanitized real status/cost evidence and refreshed provider remainder, including usage outside this application.
 
 ## M5: Video generation
 
