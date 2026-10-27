@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  --surface: #fff;
+  --border: #dfe5dc;
+  --ink: #253d36;
+  --muted: #52665b;
   font-family:
     Inter,
     ui-sans-serif,
@@ -1006,5 +1010,110 @@ button:disabled {
   .upload-limits,
   .extraction-notice {
     color: #a9bdac;
+  }
+}
+
+.image-workspace {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px;
+  scroll-padding-top: 16px;
+}
+.image-form,
+.image-history {
+  max-width: 1000px;
+  margin: 0 auto 24px;
+}
+.image-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.image-settings label,
+.image-form form > label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.84rem;
+}
+.image-settings select,
+.image-settings input,
+.image-form textarea {
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 10px;
+}
+.image-form textarea {
+  margin-top: 6px;
+  resize: vertical;
+  min-height: 90px;
+}
+.image-form .attachment-picker {
+  margin: 12px 0;
+}
+.image-form .attachment-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.image-quote {
+  font-size: 0.85rem;
+}
+.image-history h2 {
+  font-size: 1rem;
+  margin: 20px 0;
+}
+.image-job {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+}
+.image-saved-prompt {
+  white-space: pre-wrap;
+}
+.image-output-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+.image-output-grid figure {
+  margin: 12px 0;
+  min-width: 0;
+}
+.image-output-grid img {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.image-output-grid figcaption {
+  font-size: 0.75rem;
+  margin-top: 6px;
+}
+.image-job > small {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.image-job details {
+  font-size: 0.8rem;
+  margin: 12px 0;
+}
+@media (max-width: 600px) {
+  .image-workspace {
+    padding: 12px;
+  }
+  .image-settings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .image-job {
+    padding: 12px;
   }
 }

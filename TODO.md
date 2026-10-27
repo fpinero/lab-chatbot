@@ -6,16 +6,8 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 - [ ] Install a restricted provider key privately and obtain approved request/daily/cumulative live-test budgets. Acceptance: opt-in real text/vision/comparison/media checks record sanitized status and actual cost; no mock result is reported as live evidence.
 
-## M3: Attachments and comparisons
-
-- [ ] Integrate M3 with CI, PR, remote merge and branch retention evidence.
-
 ## M4: Image generation
 
-- [ ] Verify dedicated image catalog/generation contracts and chat-only adapters. Acceptance: sanitized fixtures distinguish input capabilities from generation support.
-- [ ] Implement supported settings, conservative reservations and durable local jobs. Acceptance: idempotency, restart and unknown outcome/cost tests pass.
-- [ ] Save bounded validated raster outputs with restricted outbound retrieval. Acceptance: MIME/size/SSRF/redirect and authenticated persistence tests pass.
-- [ ] Build explicit generation form, estimates, previews, downloads and retries. Acceptance: browser reload preserves results and selections never spend credit.
 - [ ] Verify one live image within approved budget or record concrete account/credential blocker without claiming completion.
 - [ ] Integrate M4 with CI, PR, remote merge and branch retention evidence.
 

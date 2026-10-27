@@ -16,13 +16,13 @@ from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, or_, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
 from app.auth.service import AuthError, digest
 from app.config import Settings
-from app.models import Attachment, AuthBucket, RunAttachment
+from app.models import Attachment, AuthBucket, MediaJobAttachment, RunAttachment
 
 MIMES = {
     ".png": "image/png",
@@ -191,13 +191,16 @@ class AttachmentService:
             )
         return name, extension
 
-    def parse(self, source: Path, output: Path, extension: str) -> dict[str, Any]:
+    def parse(
+        self, source: Path, output: Path, extension: str, overrides: dict[str, int] | None = None
+    ) -> dict[str, Any]:
         limits = {
             "pixels": self.settings.max_image_pixels,
             "edge": self.settings.max_image_edge,
             "pages": self.settings.max_pdf_pages,
             "characters": self.settings.max_document_characters,
         }
+        limits.update(overrides or {})
         result_file = output.with_suffix(".result.json")
         try:
             with result_file.open("wb") as stream:
@@ -322,11 +325,15 @@ class AttachmentService:
             item = self.get(db, owner, identifier)
             if db.scalar(
                 select(RunAttachment.run_id).where(RunAttachment.attachment_id == item.id).limit(1)
+            ) or db.scalar(
+                select(MediaJobAttachment.job_id)
+                .where(MediaJobAttachment.attachment_id == item.id)
+                .limit(1)
             ):
                 raise AuthError(
                     409,
                     "attachment_referenced",
-                    "This file is retained by saved runs. Delete those conversations first.",
+                    "This file is retained by runs or image jobs. Delete those records first.",
                 )
             path = self.path(item)
             db.delete(item)
@@ -336,11 +343,17 @@ class AttachmentService:
     def collect(self, identifiers: list[str] | None = None) -> None:
         with self.file_lock, Session(self.engine) as db:
             db.connection().exec_driver_sql("BEGIN IMMEDIATE")
-            referenced = (
+            run_reference = (
                 select(RunAttachment.attachment_id)
                 .where(RunAttachment.attachment_id == Attachment.id)
                 .exists()
             )
+            media_reference = (
+                select(MediaJobAttachment.attachment_id)
+                .where(MediaJobAttachment.attachment_id == Attachment.id)
+                .exists()
+            )
+            referenced = or_(run_reference, media_reference)
             query = select(Attachment).where(~referenced)
             query = (
                 query.where(Attachment.id.in_(identifiers))

@@ -1,4 +1,73 @@
 export const copy = {
+  images: "Image",
+  imageModel: "Image model",
+  imageProvider: "Image provider",
+  imagePrompt: "Image prompt",
+  imagePlaceholder: "Describe an image to generate...",
+  generateImage: "Generate image",
+  imageCount: "Image count",
+  imageResolution: "Resolution",
+  imageRatio: "Aspect ratio",
+  imageQuality: "Quality",
+  imageFormat: "Requested format",
+  imageReferences: "Attach reference images",
+  imageHistory: "Saved image jobs",
+  imageEmpty: "Generated images will appear here.",
+  imagePreparing: "Checking supported settings and cost...",
+  imageUnknownEstimate:
+    "Pricing requires an explicit configured request allowance.",
+  imageAllowance: "Configured request allowance",
+  imageEstimateNotice:
+    "Estimates use the selected provider's advertised billing dimensions. Local limits cannot guarantee final provider billing.",
+  imageNormalization:
+    "Saved privately as WebP with metadata removed and dimensions preserved. Downloads require authentication.",
+  imageNoAssets:
+    "No saved output is available. Assets expire after the configured retention period.",
+  imageReferenceUnsupported:
+    "This provider does not support reference images. Remove them or choose a compatible provider.",
+  imageFailure:
+    "Image generation did not complete. The prompt and settings remain available.",
+  imageErrors: {
+    provider_auth:
+      "OpenRouter rejected the configured credential. Check the restricted key.",
+    provider_credit:
+      "OpenRouter reports insufficient credit. Check the account balance.",
+    provider_rate_limit:
+      "The provider rate limit was reached. Wait before generating again.",
+    provider_unavailable:
+      "The selected provider is unavailable. Choose another explicitly or retry later.",
+    unsupported_input:
+      "The selected provider rejected these inputs or settings.",
+    provider_response_limit:
+      "The provider output exceeded the configured size limit.",
+    provider_invalid_response:
+      "The provider returned an unsupported or invalid image output.",
+    invalid_media_output: "The output could not be safely validated or saved.",
+    input_unavailable:
+      "The saved reference input is unavailable. Restore it before generating again.",
+  } as Record<string, string>,
+  imageUnknownSubmission:
+    "Submission outcome is unknown. The request may still finish and charge. It will not be sent again automatically.",
+  imageDuplicateConfirmation:
+    "The previous request may still charge. Generating again may create a duplicate charge. Continue?",
+  imageReuse: "Use these settings",
+  imageDelete: "Delete image job",
+  imageDeleteConfirmation:
+    "Delete this image job and its saved outputs? Usage records will be retained.",
+  imageDownload: "Download image",
+  imageNoProviders:
+    "No compatible raster provider is available within the configured price ceiling.",
+  imageRetryReady:
+    "Saved settings restored. Generate explicitly to create another paid request.",
+  imageUnsupportedAdapters:
+    "Image generation uses a separate model catalog. Availability depends on your OpenRouter account.",
+  completed: "Completed",
+  elapsed: "Elapsed",
+  inputTokens: "Input tokens",
+  outputTokens: "Output tokens",
+  imageReferenceNotice:
+    "Reference images are sent to the selected generation provider.",
+  expires: "Expires",
   originalCost: "Original cost",
   runFailed:
     "Generation did not complete. Saved input and any partial answer remain available.",

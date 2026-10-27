@@ -202,3 +202,106 @@ test("attachments and independent comparison cards survive reload and continue i
     fullPage: true,
   });
 });
+
+test("image generation is deliberate and saved private outputs survive reload", async ({
+  page,
+}, info) => {
+  const prompt = `Image fixture ${info.project.name}`;
+  let dispatches = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/images/jobs"
+    )
+      dispatches += 1;
+  });
+  await page.goto("/");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("synthetic-browser-passphrase");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page
+    .getByLabel("Message", { exact: true })
+    .fill(`Chat draft ${info.project.name}`);
+  await page.getByLabel("Mode", { exact: true }).selectOption("images");
+  const panel = page.getByRole("region", { name: "Image", exact: true });
+  await expect(
+    panel.getByRole("combobox", { name: "Image model", exact: true }),
+  ).toHaveValue("mock/image-studio");
+  await panel.getByLabel("Image prompt", { exact: true }).fill(prompt);
+  await panel
+    .getByRole("combobox", { name: "Aspect ratio", exact: true })
+    .selectOption("16:9");
+  await panel
+    .getByRole("combobox", { name: "Resolution", exact: true })
+    .selectOption("1K");
+  await page.getByLabel("Mode", { exact: true }).selectOption("chat");
+  await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
+    `Chat draft ${info.project.name}`,
+  );
+  await page.getByLabel("Mode", { exact: true }).selectOption("images");
+  await expect(panel.getByLabel("Image prompt", { exact: true })).toHaveValue(
+    prompt,
+  );
+  await expect(
+    panel.getByRole("combobox", { name: "Resolution", exact: true }),
+  ).toHaveValue("1K");
+  const generate = panel.getByRole("button", {
+    name: "Generate image",
+    exact: true,
+  });
+  await expect(generate).toBeEnabled();
+  expect(dispatches).toBe(0);
+  await page.screenshot({
+    path: `../artifacts/m4-form-${info.project.name}.png`,
+    fullPage: true,
+  });
+  await generate.click();
+  const result = panel
+    .getByRole("article")
+    .filter({ has: page.locator(".image-saved-prompt", { hasText: prompt }) });
+  await expect(result.getByRole("status")).toHaveText("Completed");
+  await expect(result.getByRole("img")).toBeVisible();
+  expect(
+    await result
+      .getByRole("img")
+      .evaluate((image) => (image as HTMLImageElement).naturalWidth),
+  ).toBe(1024);
+  const mediaPath = await result
+    .getByRole("link", { name: "Download image" })
+    .getAttribute("href");
+  const download = await page.request.get(mediaPath!);
+  expect(download.status()).toBe(200);
+  expect(download.headers()["content-type"]).toBe("image/webp");
+  expect(download.headers()["content-disposition"]).toContain("attachment");
+  expect(dispatches).toBe(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await result.locator(".image-output-grid").scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: `../artifacts/m4-result-${info.project.name}.png`,
+    fullPage: true,
+  });
+  await page.reload();
+  await page.getByLabel("Mode", { exact: true }).selectOption("images");
+  await expect(result.getByRole("status")).toHaveText("Completed");
+  await result
+    .getByRole("button", { name: "Use these settings", exact: true })
+    .click();
+  await expect(panel.getByLabel("Image prompt", { exact: true })).toHaveValue(
+    prompt,
+  );
+  await expect(
+    panel.getByRole("combobox", { name: "Aspect ratio", exact: true }),
+  ).toHaveValue("16:9");
+  await expect(
+    panel.getByRole("combobox", { name: "Resolution", exact: true }),
+  ).toHaveValue("1K");
+  expect(dispatches).toBe(1);
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page.getByLabel("Owner passphrase")).toBeVisible();
+  expect((await page.request.get(mediaPath!)).status()).toBe(401);
+});

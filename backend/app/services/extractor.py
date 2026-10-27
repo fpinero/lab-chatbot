@@ -38,6 +38,8 @@ def extract(path: Path, output: Path, extension: str, limits: dict[str, int]) ->
             normalized = ImageOps.exif_transpose(image)
             normalized = normalized.convert("RGBA" if "A" in normalized.getbands() else "RGB")
             if max(normalized.size) > limits["edge"]:
+                if not limits.get("resize", 1):
+                    raise Rejected("image_limits")
                 normalized.thumbnail((limits["edge"], limits["edge"]))
                 notes.append(f"Image resized to fit {limits['edge']} pixels per edge.")
             normalized.save(output, format="WEBP", quality=95, exif=b"", icc_profile=None)

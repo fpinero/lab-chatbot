@@ -1,6 +1,6 @@
 # Lab chatbot
 
-A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming chat, screenshots/documents, model comparisons, persistent history and transactional spend reservations. The OpenRouter text/vision adapter is implemented; live provider verification is pending. No paid call or deployment is performed by the default test suite.
+A private workspace for deliberate model experiments using OpenRouter. The application includes secure sign-in, streaming chat, screenshots/documents, model comparisons, image jobs, persistent history and transactional spend reservations. The OpenRouter text/vision and dedicated image adapters are implemented; live provider verification is pending. No paid call or deployment is performed by the default test suite.
 
 ## Local development
 
@@ -90,6 +90,18 @@ Compare validates two to four models before reserving their combined allowance a
 
 Referenced files remain until their conversations are deleted. Shared files survive deletion of only one reference; abandoned uploads expire after 24 hours. The application rejects uploads before its configurable 5 GiB ceiling or low disk space. The parser runs in a disposable process with a stripped environment, timeout, CPU limit on POSIX and 512 MiB address/data limits on Linux. macOS does not enforce those Linux memory limits. This process isolation is not a full operating-system sandbox; container hardening is a later gate.
 
+## Image generation status
+
+Image mode uses the dedicated image catalog and per-provider capability records, cached for 15 minutes with visible timestamps and stale fallback. Controls expose only advertised raster formats, resolution tiers, ratios, quality and counts, defaulting to one image and the smallest advertised tier. References require explicit image-input and reference capabilities. Models available only through another generation API are excluded until a separate adapter is verified; image-input support never implies image generation.
+
+Generate creates a durable local job and reserves spending before contacting OpenRouter. Image jobs share the two global generation slots, queue/rate ceilings, daily ledger and cumulative verification budget with chat. Requests pin the chosen provider without silent fallback. Known image/request dimensions produce a conservative estimate; unknown token/megapixel dimensions require an explicitly approved `IMAGE_REQUEST_ALLOWANCE_USD`, default zero. `IMAGE_PRICE_CEILING_USD` filters advertised per-unit prices and is not spending authorization.
+
+Successful outputs are decoded, bounded, validated as PNG/JPEG/WebP and saved privately as WebP with metadata removed and dimensions preserved. The default maximum is 20 MiB per output and 20 megapixels, with a 64 MiB provider response ceiling. HTML/SVG, mismatched MIME and URL-only outputs are rejected. The documented dedicated contract uses base64, so this adapter performs no arbitrary output URL retrieval and follows no redirects. Downloads require authentication. Assets expire after `MEDIA_RETENTION_DAYS`, default 30; explicit deletion keeps accounting and idempotency tombstones.
+
+Reload retrieves saved jobs and outputs. Reusing settings does not generate. Unknown cost retains its reservation; an uncertain retry requires acknowledgement of possible duplicate spend. Restart resumes queued work, while already submitted synchronous requests become submission-unknown and are never sent again automatically. The API does not currently expose a verified image status-reconciliation/cancellation contract, so unknown jobs require inspection before deliberate retry.
+
+M4 local checks pass with deterministic fixtures. The milestone remains incomplete until an approved real image succeeds and its saved output is checked. Mock success does not establish account access.
+
 ## Opt-in live verification
 
 The default suite never contacts a paid provider. A separate command can perform exactly one cheap text request through the application's authenticated API:
@@ -101,4 +113,14 @@ uv run --project backend python scripts/live-text.py \
 
 Without `--execute`, this only prints a plan after validating the configured numeric allowance. Before execution, configure the approved `LIVE_TEST_BUDGET_USD` in both the backend and test process, as well as ordinary request/daily limits. Verification runs reserve against a cumulative server-side verification allowance. Then add `--execute` explicitly. Credentials are prompted privately; Access mode can read an already obtained token from excluded `CF_ACCESS_TOKEN_FILE`. The configured `APP_ORIGIN` must reach the app, including any required edge authentication. The CLI never prints credentials, prompts or answers and writes sanitized evidence to ignored `artifacts/live-text.json`.
 
-Live text, vision and comparison verification is currently pending because credentials and approved numeric budgets have not been supplied. Image/video generation, container validation and deployment remain pending milestones.
+A separate image command uses the same explicit gates:
+
+```sh
+uv run --project backend python scripts/live-image.py \
+  --model YOUR_VERIFIED_IMAGE_MODEL --provider YOUR_VERIFIED_PROVIDER_TAG \
+  --max-usd YOUR_APPROVED_REQUEST_ALLOWANCE
+```
+
+Its default only prints a plan and cannot construct an HTTP client. `--execute` performs one image request with the smallest advertised tier and an explicit request allowance, checks the authenticated download and records sanitized status/cost evidence in ignored `artifacts/live-image.json`. Unknown cost or an incomplete output causes a failed verification result without an automatic retry. Configure any required uncertain image allowance on the backend first.
+
+Live text, vision, comparison and image verification is currently pending because credentials and approved numeric budgets have not been supplied. Video generation, container release validation and deployment remain pending milestones.

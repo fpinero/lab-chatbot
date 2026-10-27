@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.service import AuthError, digest
 from app.config import Settings
-from app.models import AuthBucket, Charge, Conversation, Run, RunAttachment
+from app.models import AuthBucket, Charge, Conversation, MediaJob, Run, RunAttachment
 from app.providers.chat import ChatProvider, ProviderError
 from app.services.attachments import AttachmentInfo, AttachmentService
 from app.services.catalog import CatalogService, ModelInfo
@@ -384,6 +384,14 @@ class RunService:
                 select(func.count())
                 .select_from(Run)
                 .where(Run.status.in_(["queued", "running", "cancel_requested"]))
+            )
+            or 0
+        )
+        active += (
+            db.scalar(
+                select(func.count())
+                .select_from(MediaJob)
+                .where(MediaJob.status.in_(["queued", "submitting", "running", "cancel_requested"]))
             )
             or 0
         )

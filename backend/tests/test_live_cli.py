@@ -32,3 +32,29 @@ def test_live_execution_requires_an_approved_numeric_allowance(
     )
     with pytest.raises(SystemExit, match="approved"):
         runpy.run_path(str(SCRIPT), run_name="__main__")
+
+
+def test_live_image_plan_and_budget_gate_never_open_network(monkeypatch, capsys) -> None:
+    script = SCRIPT.with_name("live-image.py")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Planning and rejected execution must not create an HTTP client")
+
+    monkeypatch.setattr(httpx, "Client", forbidden)
+    arguments = [
+        str(script),
+        "--model",
+        "synthetic/image",
+        "--provider",
+        "synthetic",
+        "--max-usd",
+        "0.001",
+    ]
+    monkeypatch.setattr(sys, "argv", arguments)
+    monkeypatch.setenv("LIVE_TEST_BUDGET_USD", "0.001")
+    runpy.run_path(str(script), run_name="__main__")
+    assert "Plan:" in capsys.readouterr().out
+    monkeypatch.delenv("LIVE_TEST_BUDGET_USD", raising=False)
+    monkeypatch.setattr(sys, "argv", [*arguments, "--execute"])
+    with pytest.raises(SystemExit, match="approved"):
+        runpy.run_path(str(script), run_name="__main__")

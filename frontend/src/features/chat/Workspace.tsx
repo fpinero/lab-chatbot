@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ApiError,
   chatApi,
@@ -14,6 +21,8 @@ import { copy } from "../../lib/copy";
 import RunCard from "./RunCard";
 import AttachmentPicker from "../attachments/AttachmentPicker";
 import ComparisonPanel from "../compare/ComparisonPanel";
+
+const ImagePanel = lazy(() => import("../images/ImagePanel"));
 
 const terminal = (run: RunInfo) =>
   ["succeeded", "failed", "cancelled", "interrupted"].includes(run.status);
@@ -34,7 +43,8 @@ export default function Workspace({
   expired: () => void;
   notice: string;
 }) {
-  const [mode, setMode] = useState<"chat" | "compare">("chat");
+  const [mode, setMode] = useState<"chat" | "compare" | "images">("chat");
+  const [imagesVisited, setImagesVisited] = useState(false);
   const [files, setFiles] = useState<AttachmentInfo[]>([]);
   const [uploading, setUploading] = useState(false);
   const [compareReplay, setCompareReplay] = useState<RunInfo | null>(null);
@@ -399,12 +409,16 @@ export default function Workspace({
             className="mode-select"
             id="mode"
             value={mode}
-            onChange={(event) =>
-              setMode(event.target.value as "chat" | "compare")
-            }
+            onChange={(event) => {
+              const selectedMode = event.target.value as
+                "chat" | "compare" | "images";
+              setMode(selectedMode);
+              if (selectedMode === "images") setImagesVisited(true);
+            }}
           >
             <option value="chat">{copy.chat}</option>
             <option value="compare">{copy.compare}</option>
+            <option value="images">{copy.images}</option>
           </select>
           <label className="sr-only" htmlFor="model">
             {copy.model}
@@ -695,6 +709,17 @@ export default function Workspace({
               void chatApi.history(search).then(setHistory).catch(failed);
             }}
           />
+        )}
+        {imagesVisited && (
+          <Suspense fallback={<p>{copy.loading}</p>}>
+            <ImagePanel
+              hidden={mode !== "images"}
+              expired={expired}
+              onUsageChange={() => {
+                void refreshUsage().catch(failed);
+              }}
+            />
+          </Suspense>
         )}
       </main>
     </div>
