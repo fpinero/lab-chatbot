@@ -1,6 +1,6 @@
 # Kubernetes deployment preparation
 
-This directory prepares a single-owner application for the existing K3s, Traefik and Cloudflare stack. Preparation is separate from publication and deployment. All write phases require an explicit `--execute`. The owner's current stop point is after local preparation and verification, before any namespace, Secret, Lease, workload or registry write.
+This directory manages a single-owner application on the existing K3s, Traefik and Cloudflare stack. Local verification, publication and deployment are separate phases. All write phases require an explicit `--execute`. Production releases use verified integrated main; source preparation alone does not publish or deploy anything.
 
 The target namespace, Deployment and Service are `labchatbot`, the application container is `app`, and the public origin is `https://labchatbot.nivelepsilon.com`. Commands run from the repository root and always pass the configured Kubernetes context explicitly. No script changes the current system context or installs shared infrastructure.
 
@@ -29,7 +29,7 @@ Files use mode 0600 and the credential directory uses mode 0700. Existing files 
 
 `SPEND_CONTROL=provider` keeps the existing OpenRouter key budget shared across every modality. The manifests do not allocate a monetary amount per request, day or modality. `TRUSTED_PROXY_NETWORKS=[]` deliberately trusts no forwarded client identity until actual proxy peers are verified.
 
-`RELEASE_READY=false` prevents production publication/deployment until local evidence and the intended integrated release are reviewed. `ORIGIN_TLS_VERIFIED=false` separately prevents rollout until the origin TLS prerequisite is checked. Neither flag is provider spending authorization. Keep both false at this preparation stop point.
+`RELEASE_READY=false` prevents production publication/deployment until local evidence and the intended integrated release are reviewed. `ORIGIN_TLS_VERIFIED=false` separately prevents rollout until the intended origin mode and connectivity are reviewed. Neither flag is provider spending authorization. New environments keep both false until their respective evidence exists; the template is not a record of the deployed environment.
 
 ## Isolated deployment tools
 
@@ -100,13 +100,15 @@ Do not use `down --volumes` for retained data. Kubernetes preparation does not r
 
 The Ingress preserves the supplied working pattern: `ingressClassName: traefik`, entrypoints `web,websecure`, `router.tls: "true"`, one `/` Prefix route and no certificate issuer or `spec.tls` Secret reference. Existing Traefik and Cloudflare configuration is reused, not changed. No cert-manager, additional controller or redundant HTTPS redirect middleware is installed.
 
-Cloudflare already redirects visitor HTTP to HTTPS. A Cloudflare-proxied Traefik 404 confirms that a route to an origin exists, but does not establish the exact SSL mode or validate its certificate. Full (strict) requires a valid matching origin certificate; that can be reused or installed without Cert Manager. Verify this explicitly during staged deployment before setting `ORIGIN_TLS_VERIFIED=true`. Do not select Flexible mode or disable verification to get a green check. See [Traefik 2.9 Ingress annotations](https://doc.traefik.io/traefik/v2.9/routing/providers/kubernetes-ingress/) and [Cloudflare Full (strict)](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/).
+The owner confirmed Cloudflare Full mode, a proxied DNS record pointing to `141.145.211.128`, and Traefik's default self-signed origin certificate, matching the existing mouse-desktop pattern. The first deployment preserves this configuration without installing Cert Manager or changing shared Traefik/Cloudflare settings. HTTPS encrypts the origin connection in this mode, while Full does not validate the origin certificate's issuer or hostname. This is not a Full (strict) verification. See [Cloudflare Full](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full/).
+
+For this environment, `ORIGIN_TLS_VERIFIED=true` records the explicitly confirmed Full-mode configuration and successful origin/edge checks. It does not claim public-CA trust or hostname validation at the origin. Public HTTPS checks retain normal browser/client certificate validation. A direct-origin diagnostic against the self-signed endpoint must be clearly identified and must not send owner credentials. A future Full (strict) configuration needs a valid matching certificate, which can be installed without Cert Manager. Do not change SSL modes or disable public HTTPS verification merely to make checks pass. See [Traefik 2.9 Ingress annotations](https://doc.traefik.io/traefik/v2.9/routing/providers/kubernetes-ingress/) and [Cloudflare Full (strict)](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/).
 
 The supplied Nginx example serves a static site; its fallback/cache locations are not copied into this authenticated application. FastAPI keeps private API, SSE and media responses `no-store`. Confirm that Cloudflare cache rules do not override this. The frontend uses an SPA fallback while unknown `/api` routes remain guarded JSON errors. Test real uploads and SSE through the edge; any scoped timeout/buffering adjustment must affect only this application.
 
-## Later staged deployment
+## Staged deployment
 
-The commands below are documented for the next session. They were not run during preparation.
+Use separate phases for a first deployment and inspect each result before continuing. These phases were exercised for version 1 on 2026-10-27; always plan from the current live Deployment rather than assuming the first tag is still available.
 
 1. Review the read-only plan, origin TLS, registry access and intended application release. Keep unrelated shared infrastructure untouched.
 2. Create the namespace in its own explicit step:
@@ -142,6 +144,8 @@ The commands below are documented for the next session. They were not run during
 Publishing/deploying acquires a renewable, namespaced Kubernetes Lease, including cross-machine exclusion. It fails if the lock cannot be obtained or renewed. The live baseline and source fingerprint are rechecked, existing tags are never overwritten/skipped, and a previously published tag can be reused only with a matching local receipt, digest and remote source/platform labels. Rollout uses the pinned digest. Existing Deployments use resourceVersion compare-and-swap; the first Deployment is created atomically. Rendering and a private desired-state record happen before the one Deployment write, avoiding a stale-image intermediate revision.
 
 The YAML files are reusable templates, not an authoritative record of what is currently deployed. Production is the version source. Ignored publication receipts, rendered desired-state artifacts and `k8s/release-state.local.json` record exact tag/digest/source and the previous image. Record successful integration/release metadata in the public append-only log without private data. A failed public check does not automatically roll back, retry a generation or increment another tag.
+
+Version 1 deployed main revision `c7d42b2d92eeaabc94e24047f5f79c3abe7ed543` at immutable digest `sha256:8caa54eaf576c5fa7aeb637fdc3cd4eb3b529c9023ed08a74dc7230307a97f37`. Public and direct-origin protected reads returned 401/no-store, normal owner sign-in and authenticated catalog/budget reads worked, and a real pod replacement retained the PVC, SQLite integrity, owner session and a temporary private file. A 412 by 915 browser viewport showed no horizontal overflow and kept the 44-pixel Send button visible. Physical Android keyboard behavior, representative media recovery and real later-release rollback remain separate checks.
 
 ## Backups and rollback
 
