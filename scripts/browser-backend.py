@@ -20,6 +20,7 @@ with TemporaryDirectory(prefix="lab-browser-") as directory:
         app_env="test",
         auth_mode="password",
         provider_mode="mock",
+        app_origin=f"http://127.0.0.1:{int(os.environ.get('LAB_BROWSER_UI_PORT', '5173'))}",
         auth_password_hash=PasswordHasher().hash("synthetic-browser-passphrase"),
         data_dir=Path(directory),
         database_url=None,
@@ -29,7 +30,7 @@ with TemporaryDirectory(prefix="lab-browser-") as directory:
     uvicorn.run(
         create_app(config),
         host="127.0.0.1",
-        port=8000,
+        port=int(os.environ.get("LAB_BROWSER_API_PORT", "8000")),
         proxy_headers=False,
         access_log=False,
     )
