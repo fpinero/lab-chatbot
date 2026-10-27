@@ -12,21 +12,32 @@ npm --prefix frontend ci
 uv run --project backend python scripts/configure-local.py
 ```
 
-The setup script prompts for a passphrase and writes an Argon2id hash to ignored `private/owner.hash`. It never prints the passphrase. Run the backend from the repository root:
+The setup script prompts for a passphrase and writes an Argon2id hash to ignored `private/owner.hash`. It never prints the passphrase. Once dependencies and the owner hash are ready, start both development servers from the repository root:
 
 ```sh
-export AUTH_PASSWORD_HASH_FILE=private/owner.hash
-uv run --project backend uvicorn app.main:create_app --factory \
-  --host 127.0.0.1 --port 8000 --no-proxy-headers --no-access-log
+./start-dev.sh
 ```
 
-Run the frontend in another terminal:
+The launcher waits for FastAPI and Vite, prints their addresses, and leaves them running in the background with automatic source reload. Open `http://127.0.0.1:5173` and sign in. Stop both services with:
 
 ```sh
-npm --prefix frontend run dev
+./stop-dev.sh
 ```
 
-Open `http://127.0.0.1:5173` and sign in. Vite proxies `/api` to FastAPI. Both servers bind to loopback. Environment variables are read from the process; `.env` files are not implicitly loaded. SQLite, hashed sessions and throttle counters persist under ignored `data/`. Alembic upgrades the database during startup.
+The launcher explicitly loads ignored `.env.local` as backend configuration, without executing shell commands or printing credentials. File settings override inherited settings, and `private/owner.hash` is detected when no hash setting exists. Vite receives no backend credentials from this file. Production configuration is refused. The frontend origin and API proxy follow the selected ports. Both services bind to `127.0.0.1`, with FastAPI on port 8000 by default.
+
+Repeating `start-dev.sh` reuses healthy managed servers. Occupied ports belonging to unmanaged processes cause an error without stopping those processes. `stop-dev.sh` verifies recorded process identities before stopping their process groups, including reload workers. It preserves SQLite, files and logs. Private logs and process metadata are stored in ignored `private/dev/`. SQLite, hashed sessions and throttle counters persist under ignored `data/`; Alembic upgrades the database during startup.
+
+When the pinned Node version is unavailable, the launcher can use npm to prepare it once under ignored `private/tools/node-runtime/`, leaving system Node unchanged. Use `--no-install` to disable that preparation, or set `DEV_NODE_BIN` to an existing pinned Node binary. Dependencies still require the initial installation commands above.
+
+Optional ports and environment file:
+
+```sh
+./start-dev.sh --backend-port 8001 --frontend-port 5174 --env-file .env.local
+./stop-dev.sh
+```
+
+`DEV_BACKEND_PORT`, `DEV_FRONTEND_PORT`, `DEV_ENV_FILE` and `DEV_STATE_DIR` provide equivalent launcher defaults. Use a separate state directory and data directory for simultaneous isolated instances. Outside these launchers, application settings come from the process environment; `.env` files are not implicitly loaded.
 
 After `npm --prefix frontend run build`, FastAPI can serve the compiled frontend on port 8000. Set `APP_ORIGIN=http://127.0.0.1:8000` when using that origin. API routes precede the SPA fallback and unknown API paths return JSON errors.
 
