@@ -156,3 +156,11 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Confirmed remote merged state and synchronized local main by fast-forward. The integrated tree matches the verified source. Removed completed M4 work from TODO.md and opened `feature/m5-video-generation` from the integrated main for subsequent work.
 - Retained `feature/m4-image-generation` locally and remotely at `ca059fd218377c0491f4bb911efacd370fd45398`. Earliest retention end is 2026-11-03T11:19:28Z. Automatic branch deletion is disabled; no cleanup is scheduled or authorized.
 - M4 is complete. The live local application remains available with the original saved image and shared provider budget. Video implementation, production containers and deployment remain pending; no production release occurred.
+
+
+## 2026-10-27: Mobile usage review and Pixel priority
+
+- The owner identified Google Pixel 10 Pro as a frequent-use device. Added explicit Chrome/Android physical-keyboard, rotation and enlarged-text validation to the pending M6 queue.
+- Read-only inspection of the authenticated local chat confirmed no document-level horizontal overflow at 412 by 915 and 360 by 430 CSS pixels. The ordinary-height composer and 44-pixel Send button fit within the 915-pixel viewport. Mobile navigation opened and closed with keyboard activation. No generation or paid request was submitted.
+- At 360 by 430, the composer is internally scrollable and Send initially falls below its visible area. This is a concrete remaining mobile ergonomics issue; the previous reduced-viewport browser assertion checked result attachment, not persistent Send visibility. Do not describe it as verified Android-keyboard behavior.
+- Existing CI includes mobile chat/history, comparison and image workflows at 360 pixels. This additional inspection uses desktop Chrome viewport emulation, not a real Pixel or Android soft keyboard. Saved captures remain in ignored artifacts, and the browser viewport was restored. No application source changed during this review.

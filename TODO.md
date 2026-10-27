@@ -22,6 +22,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 - [ ] Add storage/rate/concurrency limits, sanitized request IDs and local readiness. Acceptance: pressure and bounded queue behavior are tested.
 - [ ] Add consistent SQLite/file backup and isolated restore. Acceptance: restart preserves sessions/history/media and restore reproduces referenced data.
 - [ ] Finish themes, focus, keyboard, copy/export, responsive composer and recovery. Acceptance: inspect desktop/360 px screenshots and full browser suite.
+- [ ] Prioritize Chrome on Google Pixel 10 Pro for mobile validation. Acceptance: keep message input and Send reachable with the real Android keyboard open, avoid reduced-height internal-scroll dependence, check portrait/landscape and enlarged text, and record physical-device evidence separately from viewport emulation.
 - [ ] Run full checks and actual container verification. Acceptance: exact source fingerprint and real results recorded with external limitations explicit.
 - [ ] Integrate M6 with CI, PR, remote merge and branch retention evidence.
 
