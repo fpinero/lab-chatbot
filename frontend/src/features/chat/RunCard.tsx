@@ -44,9 +44,11 @@ export default function RunCard({
         </span>
         {!inherited && (
           <span>
-            {run.settings.estimate_kind === "vision_allowance"
-              ? copy.visionAllowance
-              : copy.reservation}
+            {run.settings.estimate_kind === "provider_key_remainder"
+              ? copy.providerReservation
+              : run.settings.estimate_kind === "vision_allowance"
+                ? copy.visionAllowance
+                : copy.reservation}
             : {usd(run.reserved_microusd)}
           </span>
         )}

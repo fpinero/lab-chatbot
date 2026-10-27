@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     provider_mode: Literal["mock", "openrouter"] = "mock"
     openrouter_api_key: SecretStr = SecretStr("")
     openrouter_api_key_file: Path | None = None
+    spend_control: Literal["application", "provider"] = "application"
     max_request_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
     live_test_budget_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
     daily_budget_usd: Decimal = Field(default=Decimal("0"), ge=0, le=1000)
@@ -35,6 +36,11 @@ class Settings(BaseSettings):
     max_provider_payload_bytes: int = Field(default=32 * 1024 * 1024, ge=1024, le=64 * 1024 * 1024)
     storage_ceiling_bytes: int = Field(default=5 * 1024**3, ge=1024 * 1024)
     vision_request_allowance_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    image_request_allowance_usd: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    image_price_ceiling_usd: Decimal = Field(default=Decimal("1"), ge=0, le=100)
+    max_generated_images: int = Field(default=4, ge=1, le=4)
+    max_media_file_bytes: int = Field(default=20 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
+    media_retention_days: int = Field(default=30, ge=1, le=365)
     data_dir: Path = Path("data")
     database_url: str | None = None
     auth_mode: Literal["password", "access", "policy"] = "password"

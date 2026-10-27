@@ -77,3 +77,73 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Full local verification passed: locked installs, Ruff, mypy (23 source files), 80 backend tests, generated API contract, frontend formatting/types, 4 Vitest tests, production build and 5 Playwright scenarios with one explicit desktop skip for the mobile-only viewport. One subsequently added combined-context regression also passes; affected backend suites are rerun before commit.
 - Inspected desktop/mobile comparison and continuation screenshots. Real browser workflows upload PNG plus TXT, preserve drafts across mode changes, compare three models, reload results and continue without generation. The production build reports a non-failing 577 kB bundle warning; UX/container optimization remains in M6.
 - Live text/vision/document/comparison evidence remains unavailable: no restricted provider key or approved numeric budgets are configured. No paid requests or deployment ran. M3 remote integration remains pending.
+
+## 2026-10-27: M3 remote integration
+
+- PR: https://github.com/fpinero/lab-chatbot/pull/4. CI `40421266990` passed; no pending review feedback. Source: `5eebbfc92d2324440c24bcd76b8e4abb20fae26c`.
+- Confirmed remote merge: `90018e8b15226ab82288fd26cb3491fa55d47afa`, at `2026-10-26T23:49:15Z`. Retained local/remote branch: `feature/m3-attachments-comparisons`. Earliest cleanup: `2026-11-02T23:49:15Z`; no automatic deletion.
+- Additionally passed all 27 affected backend tests in a disposable Linux ARM64 Python 3.12.15 container with network disabled, non-root UID, read-only root filesystem and dropped capabilities. Linux parser memory limits work. This is not the M6 production-container gate.
+- CI reports action-runtime deprecation notices; updating maintained action versions belongs to the local release hardening work. No deployment workflow exists.
+- Synchronized main before creating `feature/m4-image-generation`. Live provider checks remain blocked by missing restricted credentials and approved numeric budgets.
+
+## 2026-10-27: M4 local implementation, live exit gate pending
+
+- Implemented the dedicated Image API against the current official guide/schema, with separate catalog and per-provider capabilities, 15-minute durable cache/stale fallback, explicit provider pinning and no generation POST retries. Unverified chat-only image routes are excluded rather than inferred from image-input support.
+- Added durable local image jobs with immutable inputs, private reference links, shared text/image concurrency and transactional request/daily/cumulative verification reservations. Unknown billing dimensions require an explicit allowance. Known response cost is persisted before output validation; missing cost retains its reservation.
+- Added bounded base64 raster validation and private WebP publication without resizing. Rejected HTML/SVG, mismatched MIME, oversized output and URL-only results. The documented contract does not require URL retrieval, so no arbitrary fetch or redirect following is enabled. Assets expire after configurable retention; deletion preserves accounting/tombstones and reference-aware cleanup.
+- Queued jobs resume after restart. Submitted jobs become submission-unknown and are never automatically sent again. Optional generation IDs are persisted as soon as known. Retrying uncertain work requires explicit duplicate-spend acknowledgement.
+- Local full verification passes: Ruff/check/format, mypy (27 source files), 103 backend tests, generated API contract, frontend format/types, 4 Vitest tests, production build and 7 Playwright scenarios with one explicit desktop skip for the mobile-only reduced viewport. Tests include real 4096 by 4096 output parsing, expiry, restart recovery, missing usage, combined accounting and shared global concurrency.
+- Browser image workflows preserve drafts across mode changes, require explicit generation, survive reload and verify authenticated download plus denial after completed logout. Inspected desktop/mobile form and result screenshots. A browser test needed to wait for logout completion before checking denial; concurrency tests now synchronize occupied slots instead of assuming a wall-clock delay.
+- Added an opt-in one-image CLI with a network-free default plan, mandatory numeric allowance, server-side cumulative verification budget and sanitized evidence. Its read-only/budget gates pass. No live or paid provider request ran.
+- M4 is not complete: the required approved live image remains blocked by the absent restricted provider key and approved request/daily/live-test budgets. The milestone must remain open, and M5 cannot begin under the sequential milestone rule. Container release and deployment are still unverified. A non-failing 582 kB main bundle warning remains for M6.
+
+- Additional M4 platform verification: all 48 image/attachment/comparison/migration tests pass in Linux ARM64 under a non-root UID, without network, with read-only root and dropped capabilities. This includes real 4K parsing under Linux memory limits. The temporary check image includes only public source/fixtures and does not replace the M6 production-container gate.
+
+## 2026-10-27: M4 draft handoff and external blocker
+
+- Draft PR: https://github.com/fpinero/lab-chatbot/pull/5. Implementation source: `4e268b17c33920985442c9efa7c47c783f14dd40`. Retained local/remote branch: `feature/m4-image-generation`; no merge or cleanup occurred.
+- Reviewed staged source and exclusions for provider keys, private policy values, local notes and forbidden punctuation. The private brief, configuration, runtime data and evidence remain excluded.
+- Checked presence without echoing values: no provider key/file, approved request limit, daily allowance or cumulative live-test budget is installed in the current environment. No paid provider test can run safely.
+- The draft explicitly preserves the required live-image exit gate. CI/review inspection remains part of this open PR; M5 has not started because milestones must be completed and integrated sequentially. No production release or deployment occurred.
+
+- M4 CI run `40424832791` passed on `51edef19fb35ca9edcedc2b19fe68894eee07dd6`. No review comments or requested reviews remain. Cancelled only the superseded run `40424777419`; the current verification completed successfully.
+- Confirmed all M0-M4 working branches are retained locally and remotely. The current M4 PR remains a draft and unmerged solely because the mandatory approved live-image evidence is unavailable. No secret or budget was inferred from elapsed time or standing repository authorization.
+
+## 2026-10-27: M4 final filename regression
+
+- Demonstrated three filename-validation failures: Unicode normalization could produce slash, backslash or drive-colon syntax after the initial raw-name check. Generated storage IDs prevented filesystem traversal, but normalized display names did not satisfy the rejection contract.
+- Added rejection after normalization and retained the three regression fixtures. Full local verification now passes 106 backend tests, 4 frontend tests and 7 browser scenarios (one intentional desktop skip), plus formatting/types/build/contract checks.
+- All 51 image/attachment/comparison/migration tests pass in the Linux ARM64 check container with the corrected public files mounted read-only. Network is disabled and the process is non-root. No paid provider call ran.
+- Recorded explicit custom database-path/static-root validation in the M6 hardening queue; the current tests verify the normal private data-directory layout. Production packaging and release remain pending.
+
+## 2026-10-27: First live authenticated browser text check
+
+- The owner installed a restricted provider key and approved first-text spending limits in excluded local configuration. Verified that configuration and the owner hash load correctly with private file permissions; no credential values were printed or committed.
+- Started the real loopback backend/frontend. The owner signed in through the normal application UI. Health/readiness and private-route denial without a session pass; authentication was not bypassed.
+- Executed exactly one interactive browser request with `mistralai/mistral-nemo`, a 32-token output ceiling and no attachments. DekaLLM returned a completed result with 9 input and 3 output tokens. OpenRouter reported USD 0.000000252; integer ledger accounting conservatively rounded this to one micro-USD, against a 12-micro-USD reservation.
+- Reloaded and reopened saved history. The completed answer, original model/provider, usage and cost remained available. A read-only SQLite check confirmed exactly one generation, settled billing and no outstanding reservation. No automatic or manual retry was sent.
+- Saved sanitized metadata and an actual browser capture to excluded `artifacts/live-text-browser.json` and `artifacts/live-text-browser.jpg`. Neither includes credentials or session tokens. Prompt/response contents are not copied into this public log.
+- This was an ordinary interactive workspace charge, not a CLI verification-purpose charge. Its one-micro-USD ledger cost must be included in future cumulative test planning; the approved first-text test allowance has 19,999 micro-USD remaining after this smoke check.
+- Updated pending tasks and public status to distinguish this first successful live text check from the unverified remaining modalities. M4 stays a draft until its approved live-image gate is satisfied. No deployment or additional paid call occurred.
+
+
+## 2026-10-27: Shared provider key spending policy
+
+- The owner replaced preset request, daily, verification and modality allocations with the existing OpenRouter key's shared total budget. Added opt-in `SPEND_CONTROL=provider`; application-controlled spending remains the backward-compatible default for other operators.
+- Provider mode verifies restricted fixed-total key metadata and refreshes remaining credit before submission. External key usage and lower effective budgets are included. Pending and uncertain chat/comparison/image reservations share that remainder atomically; settled costs are not subtracted twice. Unknown pricing reserves the reported remainder until billing settles. Failed verification or exhausted credit prevents dispatch.
+- Provider mode ignores local monetary allowances and model/image price ceilings. Authentication, idempotency, queue/rate/concurrency, output, file and storage limits remain enforced. The authenticated UI shows the key budget, remaining credit and check time, with a read-only refresh. CLI plans work without a local amount in provider mode and remain network-free by default.
+- Updated excluded local configuration atomically, preserving the credential and every unrelated setting byte-for-byte. Private file permissions remain 0600. Read-only metadata confirmed a USD 9.90 total limit and USD 9.845606165 remainder before any image generation. No credentials or session tokens were printed.
+- Full local verification passes Ruff/check/format, mypy, 121 backend tests, generated contract, frontend format/types, 5 Vitest tests, production build and 7 browser scenarios with one intentional desktop skip. All 64 image/attachment/comparison/migration/provider-budget checks pass in the Linux ARM64 check container without network, as a non-root user with read-only source/root and dropped capabilities.
+- The real loopback services were restored with SQLite/history preserved. The owner browser session expired during implementation; the correct application tab is prepared for normal sign-in. No authentication bypass or image generation occurred. The required live-image gate and draft PR remain open pending that sign-in and actual output verification.
+
+
+## 2026-10-27: M4 live image exit gate verified
+
+- The owner signed in again through the normal application UI. Submitted exactly one dedicated image request with `qwen/qwen-image-2.1-turbo` through Alibaba Cloud Int., using advertised 1K/1:1 settings and one output under the shared provider key budget.
+- The job succeeded in 13,045 ms. Provider usage recorded 19 input and 4,175 output tokens, with actual cost USD 0.0184. The ledger settled 18,400 micro-USD and released its conservative 36,800-micro-USD reservation. No unknown charge or outstanding reservation remains, and no retry was sent.
+- Downloaded the output through the authenticated browser and decoded the actual WebP: 28,602 bytes, 1024 by 1024 pixels, without EXIF/ICC/XMP. Its checksum matches the persisted private asset. Reload preserved the original completed job, cost and image, with exactly one image job in a read-only database check.
+- Saved sanitized numeric/status evidence and the actual screenshot/download in excluded artifacts. Public documentation does not include prompts, credentials or session tokens. The live key budget remains shared across modalities; no image-specific monetary allowance was introduced.
+- Fixed a dark-mode contrast defect observed in the real image card by defining the existing surface/border/text/muted theme tokens. Actual browser inspection confirms dark surfaces with readable light text. Frontend formatting/types, all 5 Vitest tests and production build pass; the existing non-failing bundle-size warning remains.
+- CI run 40493416169 passed on provider-budget source `552aa613312f5326294d6076359a6be539e6942d`, which already passed 121 backend tests, 7 browser scenarios and 64 restricted Linux ARM64 checks. Final browser/CI integration checks follow the presentation correction before merge. Production deployment remains pending.
+
+- Additional live verification: after restarting the real backend, the owner session and original completed image remained available. The browser decoded the saved 1024 by 1024 output, with exactly one image job and no outstanding or uncertain charges. OpenRouter subsequently reported USD 9.827206165 remaining after the USD 0.0184 image charge. All 7 final browser scenarios pass (one intentional desktop skip), including authenticated download and reload workflows.

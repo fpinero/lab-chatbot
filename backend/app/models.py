@@ -140,3 +140,44 @@ class Comparison(Base):
     snapshot_json: Mapped[str] = mapped_column(String)
     created_at: Mapped[int] = mapped_column(Integer)
     __table_args__ = (Index("ux_comparison_owner_key", "owner_id", "idempotency_key", unique=True),)
+
+
+class MediaJob(Base):
+    __tablename__ = "media_jobs"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("owners.id"), index=True)
+    charge_id: Mapped[str] = mapped_column(ForeignKey("usage_ledger.id"), unique=True)
+    family: Mapped[str] = mapped_column(String)
+    model_id: Mapped[str] = mapped_column(String)
+    prompt: Mapped[str] = mapped_column(String)
+    request_json: Mapped[str] = mapped_column(String)
+    settings_json: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, index=True)
+    error_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    generation_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    usage_json: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[int] = mapped_column(Integer, index=True)
+    started_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completed_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class MediaJobAttachment(Base):
+    __tablename__ = "media_job_attachments"
+    job_id: Mapped[str] = mapped_column(
+        ForeignKey("media_jobs.id", ondelete="CASCADE"), primary_key=True
+    )
+    attachment_id: Mapped[str] = mapped_column(ForeignKey("attachments.id"), primary_key=True)
+
+
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("media_jobs.id", ondelete="CASCADE"), index=True)
+    storage_name: Mapped[str] = mapped_column(String, unique=True)
+    mime: Mapped[str] = mapped_column(String)
+    sha256: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[int] = mapped_column(Integer)
+    expires_at: Mapped[int] = mapped_column(Integer, index=True)

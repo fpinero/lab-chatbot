@@ -10,3 +10,8 @@
 - macOS can reject RLIMIT_DATA despite an unlimited value from getrlimit. Apply the tested address/data limits on Linux; document the platform difference and retain byte, CPU and timeout guards on macOS.
 - Place streaming upload limits inside the authentication middleware so parser exceptions are handled at the request boundary and temporary files are closed. A forged Content-Length test caught an otherwise hidden 500 response.
 - Validate combined attachment size again when building saved context. Independent valid upload batches must not bypass the submission ceiling.
+
+## 2026-10-27: Deterministic asynchronous verification
+
+- A browser click completes before an asynchronous logout request necessarily finishes. Wait for the signed-out UI before asserting that private downloads are denied.
+- Verify global concurrency by holding occupied slots behind an explicit synchronization gate. Fixed sleeps and minimum queue-delay thresholds can become flaky when database or catalog work takes longer.

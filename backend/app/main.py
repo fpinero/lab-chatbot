@@ -19,16 +19,20 @@ from starlette.middleware.base import RequestResponseEndpoint
 from app.api.attachments import router as attachment_router
 from app.api.chat import router as chat_router
 from app.api.comparisons import router as comparison_router
+from app.api.images import router as image_router
 from app.auth.service import AuthError, AuthService
 from app.body_limit import BodyLimitMiddleware
 from app.config import Settings
 from app.db import create_database, migrate
 from app.models import OwnerSession
 from app.providers.chat import ChatProvider, MockChat, OpenRouter
+from app.providers.images import ImageProvider, MockImages, OpenRouterImages
 from app.providers.mock import MockProvider, PreviewProvider, PreviewResult
 from app.services.attachments import AttachmentService
 from app.services.catalog import CatalogService
 from app.services.comparisons import ComparisonService
+from app.services.image_catalog import ImageCatalog
+from app.services.images import ImageService
 from app.services.runs import RunService
 
 
@@ -82,6 +86,7 @@ def create_app(
     static_dir: Path | None = None,
     clock: Callable[[], datetime] | None = None,
     chat_provider: ChatProvider | None = None,
+    image_provider: ImageProvider | None = None,
 ) -> FastAPI:
     config = settings or Settings()
 
@@ -105,13 +110,21 @@ def create_app(
                 engine, config, selected, app.state.catalog, now, app.state.attachments
             )
             app.state.comparisons = ComparisonService(app.state.runs)
+            image_adapter = image_provider or (
+                MockImages() if config.provider_mode == "mock" else OpenRouterImages(config)
+            )
+            image_catalog = ImageCatalog(engine, config, image_adapter, now)
+            app.state.images = ImageService(app.state.runs, image_adapter, image_catalog)
             await app.state.runs.recover()
+            await app.state.images.recover()
+            app.state.images.collect()
 
             async def maintain_attachments() -> None:
                 while True:
                     await asyncio.sleep(3600)
                     try:
                         await asyncio.to_thread(app.state.attachments.collect)
+                        await asyncio.to_thread(app.state.images.collect)
                     except Exception:
                         logging.getLogger(__name__).warning("attachment_maintenance_failed")
 
@@ -121,6 +134,7 @@ def create_app(
             finally:
                 maintenance.cancel()
                 await asyncio.gather(maintenance, return_exceptions=True)
+                await app.state.images.stop()
                 await app.state.runs.stop()
         finally:
             engine.dispose()
@@ -282,6 +296,7 @@ def create_app(
     app.include_router(chat_router)
     app.include_router(attachment_router)
     app.include_router(comparison_router)
+    app.include_router(image_router)
 
     @app.api_route(
         "/api", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"], include_in_schema=False

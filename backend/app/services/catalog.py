@@ -74,7 +74,7 @@ class CatalogService:
                 if self.settings.model_allowlist and model.id not in self.settings.model_allowlist:
                     continue
                 ceiling = self.settings.model_price_ceiling_per_million / 1_000_000
-                if any(
+                if self.settings.spend_control == "application" and any(
                     Decimal(model.pricing.get(key, "Infinity")) > ceiling
                     for key in ["prompt", "completion"]
                 ):
@@ -101,11 +101,12 @@ class CatalogService:
             )
         async with self.lock:
             now = self.now()
+            family = "chat:provider" if self.settings.spend_control == "provider" else "chat"
             with Session(self.engine) as db:
-                cached = db.get(CatalogCache, "chat")
+                cached = db.get(CatalogCache, family)
                 if not cached:
                     cached = CatalogCache(
-                        family="chat", catalog_json="[]", fetched_at=0, last_attempt_at=0
+                        family=family, catalog_json="[]", fetched_at=0, last_attempt_at=0
                     )
                     db.add(cached)
                     db.commit()
@@ -132,7 +133,7 @@ class CatalogService:
                     data = json.dumps([model.model_dump() for model in normalized])
                     fetched = now
                     with Session(self.engine) as db:
-                        row = db.get(CatalogCache, "chat")
+                        row = db.get(CatalogCache, family)
                         if row:
                             row.catalog_json, row.fetched_at = data, fetched
                             db.commit()

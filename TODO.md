@@ -4,20 +4,11 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## External verification prerequisites
 
-- [ ] Install a restricted provider key privately and obtain approved request/daily/cumulative live-test budgets. Acceptance: opt-in real text/vision/comparison/media checks record sanitized status and actual cost; no mock result is reported as live evidence.
-
-## M3: Attachments and comparisons
-
-- [ ] Integrate M3 with CI, PR, remote merge and branch retention evidence.
+- [ ] Verify remaining live vision/document/comparison/media flows within the shared provider key budget. Acceptance: sanitized real status/cost evidence and refreshed provider remainder, including usage outside this application.
 
 ## M4: Image generation
 
-- [ ] Verify dedicated image catalog/generation contracts and chat-only adapters. Acceptance: sanitized fixtures distinguish input capabilities from generation support.
-- [ ] Implement supported settings, conservative reservations and durable local jobs. Acceptance: idempotency, restart and unknown outcome/cost tests pass.
-- [ ] Save bounded validated raster outputs with restricted outbound retrieval. Acceptance: MIME/size/SSRF/redirect and authenticated persistence tests pass.
-- [ ] Build explicit generation form, estimates, previews, downloads and retries. Acceptance: browser reload preserves results and selections never spend credit.
-- [ ] Verify one live image within approved budget or record concrete account/credential blocker without claiming completion.
-- [ ] Integrate M4 with CI, PR, remote merge and branch retention evidence.
+- [ ] Merge the verified M4 PR remotely and record retained-branch evidence. The live image/download/reload gate now passes; inspect final CI and review status before integration.
 
 ## M5: Video generation
 
@@ -30,6 +21,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## M6: Local release candidate
 
+- [ ] Validate custom SQLite URL paths against compiled static locations, including URI/override cases. Acceptance: startup rejects every writable database/data path under public assets before opening storage.
 - [ ] Package explicit-source multi-stage image and loopback Compose with named volume. Acceptance: non-root/read-only execution and no secrets/private brief in image.
 - [ ] Add storage/rate/concurrency limits, sanitized request IDs and local readiness. Acceptance: pressure and bounded queue behavior are tested.
 - [ ] Add consistent SQLite/file backup and isolated restore. Acceptance: restart preserves sessions/history/media and restore reproduces referenced data.
@@ -49,7 +41,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## M8: Production rollout
 
-- [ ] Verify restricted key, approved numeric budgets, secure identity, origin TLS and deployment access without echoing secrets.
+- [ ] Verify restricted key and its approved shared total budget, secure identity, origin TLS and deployment access without echoing secrets.
 - [ ] Lock release, verify exact source, publish immutable next tag and recheck production baseline. Acceptance: digest/source/tag and dry-run/diff evidence recorded.
 - [ ] Deploy exact image and inspect rollout, edge/origin TLS, auth and protected reads. Acceptance: real hostname works on mobile and direct-origin access cannot bypass auth.
 - [ ] Verify history/media persistence and compatible rollback with consistent backup. Acceptance: restart checks pass without deleting production data.

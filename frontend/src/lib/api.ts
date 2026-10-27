@@ -123,3 +123,25 @@ export const comparisonApi = {
   fork: (run: string) =>
     request<ConversationDetail>(`/runs/${run}/fork`, "POST"),
 };
+
+export type ImageCatalogInfo = components["schemas"]["ImageCatalogInfo"];
+export type ImageEndpointInfo = components["schemas"]["ImageEndpointInfo"];
+export type ImageInput = components["schemas"]["ImageInput"];
+export type ImageStart = components["schemas"]["ImageStart"];
+export type ImageQuote = components["schemas"]["ImageQuote"];
+export type MediaJobInfo = components["schemas"]["MediaJobInfo"];
+export const imageApi = {
+  catalog: () => request<ImageCatalogInfo>("/images/models"),
+  refresh: () => request<ImageCatalogInfo>("/images/models/refresh", "POST"),
+  capabilities: (model: string) =>
+    request<ImageEndpointInfo>(
+      `/images/capabilities?model_id=${encodeURIComponent(model)}`,
+    ),
+  quote: (body: ImageInput) =>
+    request<ImageQuote>("/images/quote", "POST", body),
+  start: (body: ImageStart) =>
+    request<MediaJobInfo>("/images/jobs", "POST", body),
+  history: () => request<MediaJobInfo[]>("/images/jobs"),
+  remove: (id: string) =>
+    request<void>(`/images/jobs/${id}?confirm=true`, "DELETE"),
+};

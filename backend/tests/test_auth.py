@@ -90,7 +90,7 @@ def test_only_token_hash_is_stored_and_session_survives_restart(
             assert record and record.token_hash == digest(token) and record.token_hash != token
             assert db.execute(text("PRAGMA journal_mode")).scalar() == "wal"
             assert db.execute(text("PRAGMA foreign_keys")).scalar() == 1
-            assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0003"
+            assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0004"
     with TestClient(create_app(config)) as client:
         client.cookies.set(config.cookie_name, token)
         assert client.get("/api/auth/session").json()["owner_id"] == "primary"

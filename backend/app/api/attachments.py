@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Literal, cast
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse
@@ -18,6 +18,7 @@ def service(request: Request) -> AttachmentService:
 
 
 class UploadLimits(BaseModel):
+    spend_control: Literal["application", "provider"] = "application"
     files: int
     file_bytes: int
     total_bytes: int
@@ -32,6 +33,7 @@ def limits(request: Request) -> UploadLimits:
 
     config = service(request).settings
     return UploadLimits(
+        spend_control=config.spend_control,
         files=config.max_upload_files,
         file_bytes=config.max_upload_file_bytes,
         total_bytes=config.max_upload_total_bytes,

@@ -32,3 +32,46 @@ def test_live_execution_requires_an_approved_numeric_allowance(
     )
     with pytest.raises(SystemExit, match="approved"):
         runpy.run_path(str(SCRIPT), run_name="__main__")
+
+
+def test_live_image_plan_and_budget_gate_never_open_network(monkeypatch, capsys) -> None:
+    script = SCRIPT.with_name("live-image.py")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Planning and rejected execution must not create an HTTP client")
+
+    monkeypatch.setattr(httpx, "Client", forbidden)
+    arguments = [
+        str(script),
+        "--model",
+        "synthetic/image",
+        "--provider",
+        "synthetic",
+        "--max-usd",
+        "0.001",
+    ]
+    monkeypatch.setattr(sys, "argv", arguments)
+    monkeypatch.setenv("LIVE_TEST_BUDGET_USD", "0.001")
+    runpy.run_path(str(script), run_name="__main__")
+    assert "Plan:" in capsys.readouterr().out
+    monkeypatch.delenv("LIVE_TEST_BUDGET_USD", raising=False)
+    monkeypatch.setattr(sys, "argv", [*arguments, "--execute"])
+    with pytest.raises(SystemExit, match="approved"):
+        runpy.run_path(str(script), run_name="__main__")
+
+
+@pytest.mark.parametrize("name", ["live-text.py", "live-image.py"])
+def test_provider_budget_plans_need_no_local_amount_or_network(monkeypatch, capsys, name):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Planning must remain network-free")
+
+    monkeypatch.setattr(httpx, "Client", forbidden)
+    monkeypatch.setenv("SPEND_CONTROL", "provider")
+    monkeypatch.delenv("LIVE_TEST_BUDGET_USD", raising=False)
+    script = SCRIPT.with_name(name)
+    arguments = [str(script), "--model", "synthetic/model"]
+    if name == "live-image.py":
+        arguments += ["--provider", "synthetic"]
+    monkeypatch.setattr(sys, "argv", arguments)
+    runpy.run_path(str(script), run_name="__main__")
+    assert "Plan:" in capsys.readouterr().out

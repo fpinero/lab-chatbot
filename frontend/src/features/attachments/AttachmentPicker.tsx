@@ -48,6 +48,7 @@ export default function AttachmentPicker({
   disabled = false,
   onFailure,
   onBusyChange,
+  imageOnly = false,
 }: {
   items: AttachmentInfo[];
   onChange: (items: AttachmentInfo[]) => void;
@@ -55,6 +56,7 @@ export default function AttachmentPicker({
   disabled?: boolean;
   onFailure: (error: unknown) => void;
   onBusyChange?: (busy: boolean) => void;
+  imageOnly?: boolean;
 }) {
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [busy, setBusy] = useState(false);
@@ -91,8 +93,10 @@ export default function AttachmentPicker({
           aria-label={label}
           multiple
           accept={
-            limits?.allowed_extensions.join(",") ??
-            ".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx"
+            imageOnly
+              ? ".png,.jpg,.jpeg,.webp"
+              : (limits?.allowed_extensions.join(",") ??
+                ".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx")
           }
           disabled={disabled || busy}
           onChange={(event) => {
@@ -132,13 +136,17 @@ export default function AttachmentPicker({
         </button>
       ))}
       {items.length > 0 && (
-        <small className="extraction-notice">{copy.extractionNotice}</small>
-      )}
-      {items.some((item) => item.kind === "image") && limits && (
         <small className="extraction-notice">
-          {limits.vision_allowance_microusd > 0
-            ? `${copy.visionAllowance}: $${(limits.vision_allowance_microusd / 1000000).toFixed(6)}`
-            : copy.visionUnconfigured}
+          {imageOnly ? copy.imageReferenceNotice : copy.extractionNotice}
+        </small>
+      )}
+      {!imageOnly && items.some((item) => item.kind === "image") && limits && (
+        <small className="extraction-notice">
+          {limits.spend_control === "provider"
+            ? copy.providerVision
+            : limits.vision_allowance_microusd > 0
+              ? `${copy.visionAllowance}: $${(limits.vision_allowance_microusd / 1000000).toFixed(6)}`
+              : copy.visionUnconfigured}
         </small>
       )}
     </div>
