@@ -102,7 +102,7 @@ Successful outputs are decoded, bounded, validated as PNG/JPEG/WebP and saved pr
 
 Reload retrieves saved jobs and outputs. Reusing settings does not generate. Unknown cost retains its reservation; an uncertain retry requires acknowledgement of possible duplicate spend. Restart resumes queued work, while already submitted synchronous requests become submission-unknown and are never sent again automatically. The API does not currently expose a verified image status-reconciliation/cancellation contract, so unknown jobs require inspection before deliberate retry.
 
-M4 local checks pass with deterministic fixtures. The milestone remains incomplete until an approved real image succeeds and its saved output is checked. Mock success does not establish account access.
+M4 local checks and one approved live browser image pass. The live check used `qwen/qwen-image-2.1-turbo` through Alibaba Cloud Int., produced a 1024 by 1024 image for USD 0.0184, and verified the private WebP download and saved history after reload. Only one image request was sent. This establishes access to the tested endpoint; other models and modalities still require verification.
 
 ## Opt-in live verification
 
@@ -124,4 +124,4 @@ uv run --project backend python scripts/live-image.py \
 
 Its default only prints a plan and cannot construct an HTTP client. `--execute` performs one image request with the smallest advertised tier under the selected server spending policy, checks the authenticated download and records sanitized status/cost evidence in ignored `artifacts/live-image.json`. Unknown cost or an incomplete output causes a failed verification result without an automatic retry. Provider mode needs no separate image allowance; application mode retains its explicit allowance requirements.
 
-One authenticated browser text smoke check passed with a restricted provider key and approved limits. It verified a completed response, actual usage/cost, persisted history after reload and exactly one generation. This was ordinary interactive workspace usage, not the opt-in CLI verification path; its cost is included in the provider key usage. Application mode must also include it when planning cumulative test allowances. Vision/document/comparison/image verification, video generation, container release validation and deployment remain pending.
+One authenticated browser text smoke check passed with a restricted provider key and approved limits. It verified a completed response, actual usage/cost, persisted history after reload and exactly one generation. This was ordinary interactive workspace usage, not the opt-in CLI verification path; its cost is included in the provider key usage. Application mode must also include it when planning cumulative test allowances. One live image is also verified, as described above. Live vision/document/comparison verification, video generation, container release validation and deployment remain pending.

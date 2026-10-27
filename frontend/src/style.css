@@ -276,6 +276,10 @@ button:disabled {
 }
 @media (prefers-color-scheme: dark) {
   :root {
+    --surface: #213229;
+    --border: #465e4b;
+    --ink: #e0e8dd;
+    --muted: #a9bdac;
     color: #e0e8dd;
     background: #17231f;
   }

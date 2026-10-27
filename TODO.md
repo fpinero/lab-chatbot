@@ -8,8 +8,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## M4: Image generation
 
-- [ ] Generate one live image under the verified shared provider key budget and check its saved output after reload. Acceptance: sanitized real status/cost/download evidence; normal owner sign-in is required and M4 stays incomplete until this passes.
-- [ ] Complete the M4 live exit gate, then merge the draft PR remotely and record retained-branch evidence. CI and local verification already pass.
+- [ ] Merge the verified M4 PR remotely and record retained-branch evidence. The live image/download/reload gate now passes; inspect final CI and review status before integration.
 
 ## M5: Video generation
 
