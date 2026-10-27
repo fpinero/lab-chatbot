@@ -8,8 +8,8 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 ## M4: Image generation
 
-- [ ] Verify one live image within approved budget or record concrete account/credential blocker without claiming completion.
-- [ ] Integrate M4 with CI, PR, remote merge and branch retention evidence.
+- [ ] Obtain restricted credentials and approved budgets, then generate one live image and verify its saved output after reload. Acceptance: sanitized real status and cost evidence; M4 stays incomplete until this passes.
+- [ ] Pass M4 CI and the live exit gate, then merge the draft PR remotely and record retained-branch evidence.
 
 ## M5: Video generation
 

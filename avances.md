@@ -98,3 +98,10 @@ Entries are append-only. Record verified work and evidence without credentials o
 - M4 is not complete: the required approved live image remains blocked by the absent restricted provider key and approved request/daily/live-test budgets. The milestone must remain open, and M5 cannot begin under the sequential milestone rule. Container release and deployment are still unverified. A non-failing 582 kB main bundle warning remains for M6.
 
 - Additional M4 platform verification: all 48 image/attachment/comparison/migration tests pass in Linux ARM64 under a non-root UID, without network, with read-only root and dropped capabilities. This includes real 4K parsing under Linux memory limits. The temporary check image includes only public source/fixtures and does not replace the M6 production-container gate.
+
+## 2026-10-27: M4 draft handoff and external blocker
+
+- Draft PR: https://github.com/fpinero/lab-chatbot/pull/5. Implementation source: `4e268b17c33920985442c9efa7c47c783f14dd40`. Retained local/remote branch: `feature/m4-image-generation`; no merge or cleanup occurred.
+- Reviewed staged source and exclusions for provider keys, private policy values, local notes and forbidden punctuation. The private brief, configuration, runtime data and evidence remain excluded.
+- Checked presence without echoing values: no provider key/file, approved request limit, daily allowance or cumulative live-test budget is installed in the current environment. No paid provider test can run safely.
+- The draft explicitly preserves the required live-image exit gate. CI/review inspection remains part of this open PR; M5 has not started because milestones must be completed and integrated sequentially. No production release or deployment occurred.
