@@ -322,3 +322,90 @@ test("image generation is deliberate and saved private outputs survive reload", 
   await expect(page.getByLabel("Owner passphrase")).toBeVisible();
   expect((await page.request.get(mediaPath!)).status()).toBe(401);
 });
+
+test("each chat prompt retains only its own images across followups and reload", async ({
+  page,
+}, info) => {
+  const title = `Current attachment scope ${info.project.name}`;
+  await page.goto("/");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("synthetic-browser-passphrase");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const input = page.getByLabel("Message", { exact: true });
+  const upload = page.getByLabel("Attach files to chat");
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 32;
+    canvas.getContext("2d")!.fillRect(0, 0, 48, 32);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  const send = async (prompt: string, name?: string) => {
+    await input.fill(prompt);
+    if (name) {
+      await upload.setInputFiles({
+        name,
+        mimeType: "image/png",
+        buffer: Buffer.from(image, "base64"),
+      });
+      await expect(
+        page.locator(".compact-picker .attachment-item"),
+      ).toHaveCount(1);
+    }
+    const response = page.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        new URL(r.url()).pathname === "/api/runs",
+    );
+    await page
+      .getByRole("button", { name: "Send message", exact: true })
+      .click();
+    const saved = await (await response).json();
+    await expect(
+      page
+        .locator(".turn")
+        .last()
+        .getByRole("status")
+        .filter({ hasText: "Completed" }),
+    ).toBeVisible();
+    return saved;
+  };
+  const first = await send(title, "first-only.png");
+  const second = await send(
+    "Only analyse the current image",
+    "current-only.png",
+  );
+  expect(first.attachments).toHaveLength(1);
+  expect(second.attachments).toHaveLength(1);
+  expect(second.attachments[0].id).not.toBe(first.attachments[0].id);
+  const turns = page.locator(".turn");
+  await expect(turns.nth(0).locator(".attachment-item strong")).toHaveText(
+    "first-only.png",
+  );
+  await expect(turns.nth(1).locator(".attachment-item strong")).toHaveText(
+    "current-only.png",
+  );
+  await page.screenshot({
+    path: `../artifacts/current-attachments-${info.project.name}.png`,
+    fullPage: true,
+  });
+  const third = await send("This prompt has no attachment");
+  expect(third.attachments).toEqual([]);
+  await expect(turns.nth(2).locator(".attachment-item")).toHaveCount(0);
+  await page.reload();
+  if (info.project.name === "mobile")
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("navigation", { name: "Search history" })
+    .getByRole("button", { name: title, exact: true })
+    .click();
+  await expect(turns).toHaveCount(3);
+  await expect(turns.nth(0).locator(".attachment-item strong")).toHaveText(
+    "first-only.png",
+  );
+  await expect(turns.nth(1).locator(".attachment-item strong")).toHaveText(
+    "current-only.png",
+  );
+  await expect(turns.nth(2).locator(".attachment-item")).toHaveCount(0);
+});
