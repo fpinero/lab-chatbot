@@ -253,3 +253,4 @@ Entries are append-only. Record verified work and evidence without credentials o
 
 - Increased the mobile Chat/Compare/Image selector to a 16-pixel font, 18-pixel option text, a 112-pixel width and a minimum 44-pixel height. Native mobile browsers retain their platform menu presentation.
 - Type checking, formatting and all three Pixel 10 browser scenarios passed, including assertions for the control and option font sizes and touch-target height. The owner authorized merging the UI PR and deploying the next release for physical-phone review. No paid generation is required for this update.
+- CI exposed an existing timing-sensitive SSE expiry fixture whose one-second real cookie could expire before run submission on a busy runner. Kept the fake-clock expiry assertion, increased the initial cookie lifetime to 60 seconds and advanced the test clock by 61 seconds. The targeted regression passes; production authentication code is unchanged.
