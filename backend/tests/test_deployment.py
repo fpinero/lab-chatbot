@@ -109,6 +109,58 @@ def test_live_production_and_resource_version_drive_the_plan(config, monkeypatch
         release.ensure_baseline(config, plan)
 
 
+@pytest.mark.parametrize("existing", [False, True])
+def test_server_validation_matches_deployment_write_without_ssa_ownership(
+    config, monkeypatch, existing
+):
+    desired = yaml.safe_load((ROOT / "k8s/deployment.yaml").read_text())
+    original = copy.deepcopy(desired)
+    calls = []
+    schemas = []
+
+    def get(self, kind, name):
+        if kind == "namespace":
+            return {"metadata": {"name": config.namespace}}
+        assert kind == "deployment" and name == config.deployment
+        return deployment(config, version="37") if existing else None
+
+    def kube(self, *args, **kwargs):
+        calls.append((args, json.loads(kwargs["data"])))
+        assert args[0] == ("replace" if existing else "create")
+        assert "--dry-run=server" in args
+        assert "--server-side" not in args and "--force-conflicts" not in args
+        return SimpleNamespace(stdout="", returncode=0)
+
+    monkeypatch.setattr(release.Config, "get", get)
+    monkeypatch.setattr(release.Config, "kube", kube)
+    monkeypatch.setattr(release, "compatible_client", lambda *args: None)
+    monkeypatch.setattr(release, "run", lambda *args, **kwargs: schemas.append(args))
+    result = release.validate(config, [desired], server=True)
+    assert result["server_dry_run"] and len(schemas) == 1 and len(calls) == 1
+    assert calls[0][1]["metadata"].get("resourceVersion") == ("37" if existing else None)
+    assert desired == original
+
+
+def test_server_validation_keeps_infrastructure_apply_separate(config, monkeypatch):
+    desired = yaml.safe_load((ROOT / "k8s/deployment.yaml").read_text())
+    infrastructure = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "config"}}
+    calls = []
+    monkeypatch.setattr(release.Config, "get", lambda *args: deployment(config))
+    monkeypatch.setattr(release, "compatible_client", lambda *args: None)
+    monkeypatch.setattr(release, "run", lambda *args, **kwargs: None)
+
+    def kube(self, *args, **kwargs):
+        calls.append((args, list(yaml.safe_load_all(kwargs["data"]))))
+        assert "--dry-run=server" in args
+        return SimpleNamespace(stdout="", returncode=0)
+
+    monkeypatch.setattr(release.Config, "kube", kube)
+    release.validate(config, [infrastructure, desired], server=True)
+    assert [call[0][0] for call in calls] == ["replace", "apply"]
+    assert calls[1][1] == [infrastructure]
+    assert "--server-side" in calls[1][0]
+
+
 @pytest.mark.parametrize(
     "message",
     [
