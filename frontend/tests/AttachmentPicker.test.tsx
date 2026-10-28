@@ -257,9 +257,10 @@ test("unmounted upload completion cannot update a different draft", async () => 
   );
   paste(target, [png()]);
   unmount();
+  expect(busy.mock.calls).toEqual([[true], [false]]);
   await act(async () => release([image]));
   expect(changed).not.toHaveBeenCalled();
-  expect(busy.mock.calls).toEqual([[true]]);
+  expect(busy.mock.calls).toEqual([[true], [false]]);
   expect(paste(target, [png()]).defaultPrevented).toBe(false);
 });
 
