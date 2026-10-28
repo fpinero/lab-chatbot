@@ -22,3 +22,7 @@
 - Resolve backup destination parents before comparing against the live data directory. A symlink alias must not place staging/archive files inside the directory being copied.
 - Test backup, restore and backup again. Archive-control metadata must not become inconsistent application content on the second snapshot.
 - A release verification fingerprint must be computed for frozen public sources. Edits during a build must invalidate the evidence rather than certify a different final tree.
+
+## 2026-10-28: Upload cleanup and parent busy state
+
+- Suppressing asynchronous results after unmount must also release any busy flag owned by a still-mounted caller. Notify that caller during detachment, then ignore the eventual completion entirely, so an old request cannot clear a newer request's state. Test both immediate cleanup and delayed resolution, including components conditionally removed while their parent remains visible.

@@ -81,10 +81,15 @@ export default function AttachmentPicker({
   const optionsRef = useRef<HTMLDetailsElement>(null);
   const uploadPending = useRef(false);
   const mounted = useRef(false);
+  const busyCallback = useRef(onBusyChange);
+  useEffect(() => {
+    busyCallback.current = onBusyChange;
+  }, [onBusyChange]);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      if (uploadPending.current) busyCallback.current?.(false);
     };
   }, []);
   useEffect(() => {

@@ -6,11 +6,9 @@ The owner authorized staged deployment from integrated main, ahead of the remain
 
 The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
 
-## Clipboard screenshot input
-
-- [ ] Document usage and integrate the verified change through CI and PR, retaining the branch. Physical macOS/Windows screenshot shortcuts remain a separate device check.
-
 ## External verification prerequisites
+
+- [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified; the integrated clipboard feature is available locally and awaits a separately verified production release.
 
 
 
