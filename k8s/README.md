@@ -151,6 +151,8 @@ Version 2 deployed main revision `a6bd6b7a6130d4c3279bd0e4a863921223654b0d` at i
 
 ## Backups and rollback
 
+Version 3 deployed main revision `4984ee63d65e03036ad8e30a0339e4cf50dfafae` at immutable digest `sha256:7500b75765865b9b08a95ce33b27372abcc84c13eeb23d00c85be4bf40c4df06` on 2026-10-28. It adds Copy prompt beneath saved chat, comparison and image inputs. The standard release scripts now validate the actual CAS replacement without the one-off adapter needed for version 2. A fresh encrypted offline snapshot and isolated authenticated reads with versions 2/3 preceded rollout. Public bundle hashes and the Copy prompt code, protected reads, original rows/files, SQLite integrity and the same PVC all passed verification. The backup/rollback requirements below still apply to future releases.
+
 Use a maintenance window and stop every application writer before snapshotting SQLite together with its referenced files. `scripts/backup-data.py` uses the SQLite backup API, verifies integrity, archives the data/files/checksums and encrypts the archive with authenticated AES-256-GCM. It never copies only an active WAL database file. Keep the random backup key separately and securely backed up; losing it makes the encrypted archive unrecoverable.
 
 Examples run locally against an offline data directory; corresponding in-cluster maintenance/volume mounts must be reviewed during staged operation:
