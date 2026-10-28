@@ -485,6 +485,19 @@ button:disabled {
 .usage-summary {
   border-top: 1px solid #b3c1b1;
   padding-top: 18px;
+  flex-shrink: 0;
+}
+.balance-refresh {
+  min-height: 44px;
+  margin-top: 6px;
+}
+.usage-summary .balance-error {
+  color: #993b31;
+}
+@media (prefers-color-scheme: dark) {
+  .usage-summary .balance-error {
+    color: #f2aca0;
+  }
 }
 .model-bar {
   padding: 12px 24px;

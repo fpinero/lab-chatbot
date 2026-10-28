@@ -449,3 +449,99 @@ test("New conversation clears failed mobile input, attachment, options and error
     max_tokens: 2048,
   });
 });
+
+test("mobile sidebar balance refresh receives taps, reports failure and survives drawer reopen", async ({
+  page,
+}) => {
+  const posts = countGenerations(page);
+  let reads = 0,
+    failNext = false,
+    holdNext = false;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/usage(?:\?.*)?$/, async (route) => {
+    reads += 1;
+    if (holdNext) {
+      holdNext = false;
+      await gate;
+    }
+    if (failNext) {
+      failNext = false;
+      await route.fulfill({
+        status: 503,
+        json: { error: { message: "Temporary provider read failure" } },
+      });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        spend_control: "provider",
+        simulated: false,
+        provider_key_budget: {
+          limit_usd: "9.9",
+          remaining_usd: "9.8",
+          used_usd: "0.1",
+          checked_at: 1700000000 + reads * 60,
+        },
+        daily_actual_microusd: 100000,
+        outstanding_microusd: 9800000,
+        uncertain_count: 1,
+        conversations: {},
+        request_limit_microusd: null,
+        daily_limit_microusd: null,
+      },
+    });
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Open navigation" }).tap();
+  const usage = page.getByRole("region", { name: "Usage", exact: true });
+  const button = usage.getByRole("button", {
+    name: "Refresh balance",
+    exact: true,
+  });
+  for (const size of [
+    { width: 412, height: 924 },
+    { width: 360, height: 430 },
+  ]) {
+    await page.setViewportSize(size);
+    await button.scrollIntoViewIfNeeded();
+    const before = await usage.locator("small").textContent();
+    const previous = reads;
+    await button.tap();
+    await expect.poll(() => reads).toBe(previous + 1);
+    await expect(usage.locator("small")).not.toHaveText(before!);
+    await expect(usage.getByRole("status")).toHaveText("Balance updated.");
+  }
+  await page.setViewportSize({ width: 412, height: 924 });
+  holdNext = true;
+  const previous = reads;
+  await button.tap();
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveText("Refreshing balance...");
+  await page.getByRole("button", { name: "Close navigation" }).tap();
+  await page.getByRole("button", { name: "Open navigation" }).tap();
+  await expect(button).toBeDisabled();
+  expect(reads).toBe(previous + 1);
+  release();
+  await expect(button).toBeEnabled();
+  await expect(usage.getByRole("status")).toHaveText("Balance updated.");
+  await button.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: "../artifacts/mobile-balance-refresh.png",
+    fullPage: true,
+  });
+  const time = await usage.locator("small").textContent();
+  failNext = true;
+  await button.tap();
+  await expect(usage.getByRole("alert")).toContainText(
+    "Could not refresh balance.",
+  );
+  await expect(usage.locator("small")).toHaveText(time!);
+  await expect(button).toBeEnabled();
+  await button.tap();
+  await expect(usage.getByRole("alert")).toHaveCount(0);
+  await expect(usage.getByRole("status")).toHaveText("Balance updated.");
+  expect(posts).toHaveLength(0);
+});

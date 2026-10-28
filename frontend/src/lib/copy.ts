@@ -121,6 +121,10 @@ export const copy = {
     "OpenRouter balance unavailable. Generation requires verification.",
   providerReservation: "Key remainder reserved for uncertain pricing",
   refreshUsage: "Refresh balance",
+  refreshingBalance: "Refreshing balance...",
+  balanceUpdated: "Balance updated.",
+  balanceRefreshFailed:
+    "Could not refresh balance. The last verified data is unchanged. Try again.",
   budgetChecked: "Balance checked",
   providerVision:
     "Uses the shared OpenRouter key budget. Image-input pricing may be uncertain.",

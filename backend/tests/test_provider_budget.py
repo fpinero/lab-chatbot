@@ -157,6 +157,27 @@ def test_budget_read_failure_never_dispatches(settings_factory):
         assert not images.calls
 
 
+def test_manual_balance_refresh_rejects_stale_cache_and_recovers(settings_factory):
+    provider = BudgetProvider()
+    app = create_app(live_settings(settings_factory), chat_provider=provider)
+    with TestClient(app) as client:
+        signin(client)
+        first = client.get("/api/usage").json()["provider_key_budget"]
+        provider.budget_unavailable = True
+        cached = client.get("/api/usage")
+        assert cached.status_code == 200
+        assert cached.json()["provider_key_budget"] == first
+        manual = client.get("/api/usage?refresh=true")
+        assert manual.status_code == 503
+        assert manual.json()["error"]["code"] == "provider_budget_unavailable"
+        provider.budget_unavailable = False
+        provider.remaining = Decimal("0.005")
+        recovered = client.get("/api/usage?refresh=true")
+        assert recovered.status_code == 200
+        assert recovered.json()["provider_key_budget"]["remaining_usd"] == "0.005"
+        assert not provider.calls
+
+
 @pytest.mark.parametrize("image_input", [False, True])
 def test_uncertain_chat_pricing_reserves_shared_remainder(settings_factory, image_input):
     class UncertainProvider(BudgetProvider):
