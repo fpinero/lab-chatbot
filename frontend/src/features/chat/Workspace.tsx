@@ -971,7 +971,7 @@ export default function Workspace({
         </div>
         {catalog && (
           <ComparisonPanel
-            key={draftVersion}
+            key={`comparison-${draftVersion}`}
             hidden={mode !== "compare"}
             catalog={catalog}
             conversation={conversation}
@@ -1008,7 +1008,7 @@ export default function Workspace({
         {imagesVisited && (
           <Suspense fallback={<p>{copy.loading}</p>}>
             <ImagePanel
-              key={draftVersion}
+              key={`images-${draftVersion}`}
               hidden={mode !== "images"}
               expired={expired}
               onUsageChange={() => {
