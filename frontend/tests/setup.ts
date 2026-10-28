@@ -4,6 +4,9 @@ import { afterEach, vi } from "vitest";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  localStorage.clear();
+  sessionStorage.clear();
 });
 Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
   configurable: true,

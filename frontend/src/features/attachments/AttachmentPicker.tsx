@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ApiError,
   attachmentApi,
@@ -49,6 +49,10 @@ export default function AttachmentPicker({
   onFailure,
   onBusyChange,
   imageOnly = false,
+  compact = false,
+  children,
+  options,
+  actions,
 }: {
   items: AttachmentInfo[];
   onChange: (items: AttachmentInfo[]) => void;
@@ -57,6 +61,10 @@ export default function AttachmentPicker({
   onFailure: (error: unknown) => void;
   onBusyChange?: (busy: boolean) => void;
   imageOnly?: boolean;
+  compact?: boolean;
+  children?: ReactNode;
+  options?: ReactNode;
+  actions?: ReactNode;
 }) {
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,6 +72,9 @@ export default function AttachmentPicker({
   useEffect(() => {
     void attachmentApi.limits().then(setLimits).catch(onFailure);
   }, []);
+  useEffect(() => {
+    setError("");
+  }, [items]);
   async function upload(files: File[]) {
     if (!files.length || busy) return;
     if (files.length + items.length > (limits?.files ?? 5)) {
@@ -84,37 +95,39 @@ export default function AttachmentPicker({
       onBusyChange?.(false);
     }
   }
-  return (
-    <div className="attachment-picker">
-      <label className="file-button">
-        {busy ? copy.uploading : copy.attachFiles}
-        <input
-          type="file"
-          aria-label={label}
-          multiple
-          accept={
-            imageOnly
-              ? ".png,.jpg,.jpeg,.webp"
-              : (limits?.allowed_extensions.join(",") ??
-                ".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx")
-          }
-          disabled={disabled || busy}
-          onChange={(event) => {
-            const files = Array.from(event.target.files ?? []);
-            event.target.value = "";
-            void upload(files);
-          }}
-        />
-      </label>
-      {limits && (
-        <span className="upload-limits">
-          {copy.uploadLimits(
-            limits.files,
-            limits.file_bytes / 1048576,
-            limits.total_bytes / 1048576,
-          )}
-        </span>
+  const control = (
+    <label className="file-button">
+      {busy ? copy.uploading : compact ? copy.attachShort : copy.attachFiles}
+      <input
+        type="file"
+        aria-label={label}
+        multiple
+        accept={
+          imageOnly
+            ? ".png,.jpg,.jpeg,.webp"
+            : (limits?.allowed_extensions.join(",") ??
+              ".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx")
+        }
+        disabled={disabled || busy}
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          event.target.value = "";
+          void upload(files);
+        }}
+      />
+    </label>
+  );
+  const limitNotice = limits && (
+    <span className="upload-limits">
+      {copy.uploadLimits(
+        limits.files,
+        limits.file_bytes / 1048576,
+        limits.total_bytes / 1048576,
       )}
+    </span>
+  );
+  const feedback = (
+    <>
       {error && (
         <p role="alert" className="error">
           {error}
@@ -149,6 +162,43 @@ export default function AttachmentPicker({
               : copy.visionUnconfigured}
         </small>
       )}
+    </>
+  );
+  if (compact)
+    return (
+      <div className="attachment-picker compact-picker">
+        {(items.length > 0 || error) && (
+          <div className="attachment-feedback">{feedback}</div>
+        )}
+        {children}
+        <div className="composer-toolbar">
+          {control}
+          <details
+            className="composer-options"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.currentTarget.open = false;
+                event.currentTarget
+                  .querySelector<HTMLElement>("summary")
+                  ?.focus();
+              }
+            }}
+          >
+            <summary>{copy.composerOptions}</summary>
+            <div className="composer-options-content">
+              <p>{limitNotice}</p>
+              {options}
+            </div>
+          </details>
+          <div className="composer-actions">{actions}</div>
+        </div>
+      </div>
+    );
+  return (
+    <div className="attachment-picker">
+      {control}
+      {limitNotice}
+      {feedback}
     </div>
   );
 }

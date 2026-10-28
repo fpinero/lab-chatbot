@@ -305,9 +305,6 @@ export default function ImagePanel({
       aria-label={copy.images}
     >
       <div className="image-form">
-        <div className="notice">
-          {catalog?.models[0]?.simulated ? copy.mockNotice : copy.privacy}
-        </div>
         <div className="image-settings">
           <label>
             {copy.imageModel}
