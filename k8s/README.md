@@ -157,6 +157,8 @@ Version 4 deployed main revision `f4d566bd8fcf5ab2773552ae0d1fdd098040969f` at i
 
 ## Backups and rollback
 
+Version 5 deployed main revision `2053b0c842f8b413a75d7fd7d4f9af1890515945` at immutable digest `sha256:aae30f598e7ddb997a8aa811c227b7092645884e715e9988128d6a006c46b115` on 2026-10-28. New chat/comparison requests include only current-prompt files, and legacy response previews show only turn-owned attachments. Historical text and stored records are retained. Captured provider payloads, an isolated affected legacy-data copy, desktop/mobile reload and read-only hypothetical snapshots inside the real production container verified the scope. Fresh encrypted recovery checks, original row/file hashes, SQLite integrity, the same PVC, public HTTPS and protected routes passed. No provider generation or data migration was required.
+
 Use a maintenance window and stop every application writer before snapshotting SQLite together with its referenced files. `scripts/backup-data.py` uses the SQLite backup API, verifies integrity, archives the data/files/checksums and encrypts the archive with authenticated AES-256-GCM. It never copies only an active WAL database file. Keep the random backup key separately and securely backed up; losing it makes the encrypted archive unrecoverable.
 
 Examples run locally against an offline data directory; corresponding in-cluster maintenance/volume mounts must be reviewed during staged operation:
