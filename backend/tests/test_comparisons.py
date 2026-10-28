@@ -226,3 +226,33 @@ def test_continuation_uses_only_the_chosen_answer(
         assistants = [message["content"] for message in messages if message["role"] == "assistant"]
         assert assistants == [chosen["output"]]
         assert "mock/steady" not in json.dumps(messages)
+
+
+def test_comparison_and_fork_followups_send_only_current_prompt_attachments(settings_factory):
+    provider = Candidates()
+    app = create_app(settings_factory(), chat_provider=provider)
+    with TestClient(app) as client:
+        headers = signin(client)
+        conversation = new_conversation(client, headers)
+        old = upload(client, headers, "old.png", png(), "image/png").json()[0]
+        current = upload(client, headers, "current.png", png(40, 30), "image/png").json()[0]
+        first = start(client, headers, conversation, attachment_ids=[old["id"]]).json()
+        finish(client, first["id"])
+        group = completed_group(
+            client,
+            compare(client, headers, conversation, attachment_ids=[current["id"]]).json()["id"],
+        )
+        for candidate in group["candidates"]:
+            assert [a["id"] for a in candidate["attachments"]] == [current["id"]]
+        for payload in provider.calls[1:]:
+            assert isinstance(payload["messages"][0]["content"], str)
+            assert sum(isinstance(m["content"], list) for m in payload["messages"]) == 1
+        forked = client.post(
+            "/api/runs/" + group["candidates"][0]["id"] + "/fork", headers=headers
+        ).json()
+        next_run = start(client, headers, forked["id"], prompt="Plain followup")
+        assert next_run.status_code == 202, next_run.text
+        finish(client, next_run.json()["id"])
+        assert all(isinstance(m["content"], str) for m in provider.calls[-1]["messages"])
+        assert client.get("/api/attachments/" + old["id"]).status_code == 200
+        assert client.get("/api/attachments/" + current["id"]).status_code == 200

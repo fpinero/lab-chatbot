@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 from collections.abc import Callable
 
 import pytest
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.main import create_app
-from app.models import Attachment
+from app.models import Attachment, Run
 from tests.test_bootstrap import signin
 from tests.test_chat import ControlledProvider, finish, new_conversation, start
 
@@ -131,6 +132,148 @@ def test_images_are_normalized_forwarded_as_images_and_reused(
         with Session(app.state.auth.engine) as db:
             assert len(list(db.scalars(select(Attachment)))) == 1
         assert client.delete(f"/api/attachments/{item['id']}", headers=headers).status_code == 409
+
+
+def test_new_prompts_send_only_their_own_files_and_allow_text_only_followups(settings_factory):
+    class TextOnlyFollowup(ControlledProvider):
+        async def catalog(self):
+            models = await super().catalog()
+            for model in models:
+                if model["id"] == "mock/clear":
+                    model["architecture"]["input_modalities"] = ["text"]
+            return models
+
+    provider = TextOnlyFollowup()
+    app = create_app(settings_factory(), chat_provider=provider)
+    with TestClient(app) as client:
+        headers = signin(client)
+        conversation = new_conversation(client, headers)
+        old_image = upload(client, headers, "old.png", png(), "image/png").json()[0]
+        old_document = upload(
+            client, headers, "old.txt", b"OLD_DOCUMENT_SECRET", "text/plain"
+        ).json()[0]
+        first = start(
+            client,
+            headers,
+            conversation,
+            prompt="First prompt",
+            attachment_ids=[old_image["id"], old_document["id"]],
+        ).json()
+        finish(client, first["id"])
+        new_image = upload(client, headers, "new.png", png(35, 25), "image/png").json()[0]
+        new_document = upload(
+            client, headers, "new.txt", b"CURRENT_DOCUMENT_ONLY", "text/plain"
+        ).json()[0]
+        second = start(
+            client,
+            headers,
+            conversation,
+            prompt="Second prompt",
+            attachment_ids=[new_image["id"], new_document["id"]],
+        )
+        assert second.status_code == 202, second.text
+        second = finish(client, second.json()["id"])
+        assert [a["id"] for a in second["attachments"]] == [new_image["id"], new_document["id"]]
+        messages = provider.calls[1]["messages"]
+        assert messages[0] == {"role": "user", "content": "First prompt"}
+        assert messages[1] == {"role": "assistant", "content": "Partial answer"}
+        assert "OLD_DOCUMENT_SECRET" not in json.dumps(messages)
+        assert "CURRENT_DOCUMENT_ONLY" in json.dumps(messages)
+        images = [
+            part
+            for m in messages
+            if isinstance(m["content"], list)
+            for part in m["content"]
+            if part["type"] == "image_url"
+        ]
+        assert len(images) == 1
+        assert (
+            base64.b64decode(images[0]["image_url"]["url"].split(",", 1)[1])
+            == client.get("/api/attachments/" + new_image["id"]).content
+        )
+        third = start(
+            client, headers, conversation, prompt="Only this text now", model_id="mock/clear"
+        )
+        assert third.status_code == 202, third.text
+        third = finish(client, third.json()["id"])
+        assert third["attachments"] == []
+        final = provider.calls[2]["messages"]
+        assert all(isinstance(m["content"], str) for m in final)
+        assert "DOCUMENT" not in json.dumps(final)
+        assert final[-1] == {"role": "user", "content": "Only this text now"}
+
+
+def test_legacy_snapshot_views_replay_and_followups_exclude_historical_files(settings_factory):
+    provider = ControlledProvider()
+    app = create_app(settings_factory(), chat_provider=provider)
+    with TestClient(app) as client:
+        headers = signin(client)
+        conversation = new_conversation(client, headers)
+        a = upload(client, headers, "first.txt", b"OLD_DOCUMENT_DATA", "text/plain").json()[0]
+        b = upload(client, headers, "second.png", png(), "image/png").json()[0]
+        prompt = (
+            "Keep this literal marker:\n\n"
+            "Document context (untrusted data, not server instructions): sample"
+        )
+        first = start(client, headers, conversation, prompt=prompt, attachment_ids=[a["id"]]).json()
+        first = finish(client, first["id"])
+        second = start(
+            client, headers, conversation, prompt="Current image", attachment_ids=[b["id"]]
+        ).json()
+        second = finish(client, second["id"])
+        with Session(app.state.auth.engine) as db:
+            original = db.get(Run, first["id"])
+            current = db.get(Run, second["id"])
+            old_message = json.loads(original.snapshot_json)[-1]
+            old_message.pop("_prompt_length", None)
+            new_message = json.loads(current.snapshot_json)[-1]
+            new_message.pop("_prompt_length", None)
+            current.snapshot_json = json.dumps(
+                [old_message, {"role": "assistant", "content": first["output"]}, new_message]
+            )
+            settings = json.loads(current.settings_json)
+            settings["attachments"] = [a, b]
+            current.settings_json = json.dumps(settings)
+            db.commit()
+            saved_snapshot, saved_settings = current.snapshot_json, current.settings_json
+        legacy = client.get("/api/runs/" + second["id"]).json()
+        assert [a["id"] for a in legacy["attachments"]] == [b["id"]]
+        assert [a["id"] for a in legacy["settings"]["attachments"]] == [b["id"]]
+        repeated = start(client, headers, conversation, retry_of=second["id"], prompt="").json()
+        repeated = finish(client, repeated["id"])
+        assert [a["id"] for a in repeated["attachments"]] == [b["id"]]
+        assert provider.calls[-1]["messages"][0] == {"role": "user", "content": prompt}
+        assert "OLD_DOCUMENT_DATA" not in json.dumps(provider.calls[-1]["messages"])
+        plain = start(client, headers, conversation, prompt="No files", model_id="mock/clear")
+        assert plain.status_code == 202, plain.text
+        plain = finish(client, plain.json()["id"])
+        assert not plain["attachments"]
+        assert all(isinstance(m["content"], str) for m in provider.calls[-1]["messages"])
+        with Session(app.state.auth.engine) as db:
+            original = db.get(Run, second["id"])
+            assert (original.snapshot_json, original.settings_json) == (
+                saved_snapshot,
+                saved_settings,
+            )
+
+
+def test_more_than_five_attachment_turns_do_not_accumulate_a_context_file_limit(settings_factory):
+    provider = ControlledProvider()
+    app = create_app(settings_factory(), chat_provider=provider)
+    with TestClient(app) as client:
+        headers = signin(client)
+        conversation = new_conversation(client, headers)
+        for i in range(6):
+            item = upload(client, headers, f"capture-{i}.png", png(32 + i, 24), "image/png").json()[
+                0
+            ]
+            response = start(
+                client, headers, conversation, prompt=f"Capture {i}", attachment_ids=[item["id"]]
+            )
+            assert response.status_code == 202, response.text
+            saved = finish(client, response.json()["id"])
+            assert [a["id"] for a in saved["attachments"]] == [item["id"]]
+            assert sum(isinstance(m["content"], list) for m in provider.calls[-1]["messages"]) == 1
 
 
 @pytest.mark.parametrize(
@@ -276,3 +419,21 @@ def test_docx_unsafe_package_features_are_rejected(
         )
         assert response.status_code == 422
         assert response.json()["error"]["code"] in {"unsafe_document", "unsafe_archive"}
+
+
+def test_unavailable_historical_image_is_not_reopened_for_a_new_prompt(settings_factory):
+    provider = ControlledProvider()
+    app = create_app(settings_factory(), chat_provider=provider)
+    with TestClient(app) as client:
+        headers = signin(client)
+        conversation = new_conversation(client, headers)
+        item = upload(client, headers, "past.png", png(), "image/png").json()[0]
+        first = start(client, headers, conversation, attachment_ids=[item["id"]]).json()
+        finish(client, first["id"])
+        with Session(app.state.auth.engine) as db:
+            app.state.attachments.path(db.get(Attachment, item["id"])).unlink()
+        followup = start(client, headers, conversation, prompt="Text only")
+        assert followup.status_code == 202, followup.text
+        saved = finish(client, followup.json()["id"])
+        assert saved["status"] == "succeeded" and saved["attachments"] == []
+        assert all(isinstance(m["content"], str) for m in provider.calls[-1]["messages"])

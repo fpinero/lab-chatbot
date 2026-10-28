@@ -138,6 +138,9 @@ class RunService:
     def info(self, db: Session, run: Run) -> RunInfo:
         charge = db.scalar(select(Charge).where(Charge.run_id == run.id))
         settings = json.loads(run.settings_json)
+        turn_ids = set(settings.get("turn_attachment_ids", []))
+        attachments = [item for item in settings.get("attachments", []) if item["id"] in turn_ids]
+        settings = {**settings, "attachments": attachments}
         inherited = settings.get("imported_from") is not None
         if not charge and not inherited:
             raise AuthError(500, "accounting_unavailable", "Usage accounting is unavailable.")
@@ -166,9 +169,7 @@ class RunService:
             accounting_state=charge.state if charge else "inherited",
             comparison_id=run.comparison_id,
             queue_delay_ms=settings.get("queue_delay_ms"),
-            attachments=[
-                AttachmentInfo.model_validate(item) for item in settings.get("attachments", [])
-            ],
+            attachments=[AttachmentInfo.model_validate(item) for item in attachments],
             usage=json.loads(run.usage_json) if run.usage_json else None,
             simulated=settings["simulated"],
             settings=settings,
@@ -284,16 +285,16 @@ class RunService:
                 )
             turn_ids = json.loads(original.settings_json).get("turn_attachment_ids", [])
             messages = json.loads(original.snapshot_json)
-            if prompt:
-                messages[-1] = self.attachments.turn(db, owner, prompt, turn_ids)
-            else:
-                prompt = original.prompt
+            prompt = prompt or original.prompt
+            messages = self.attachments.text_history(db, owner, messages[:-1])
+            messages.append(self.attachments.turn(db, owner, prompt, turn_ids))
         else:
             messages = json.loads(head.snapshot_json) if head else []
             if head and head.status == "succeeded":
                 messages.append({"role": "assistant", "content": head.output})
             elif head:
                 messages = messages[:-1]
+            messages = self.attachments.text_history(db, owner, messages)
             messages = [message for message in messages if message["role"] != "system"]
             if body.system_prompt:
                 messages.insert(0, {"role": "system", "content": body.system_prompt})
@@ -462,7 +463,7 @@ class RunService:
             "turn_attachment_ids": turn_ids,
             "attachments": [
                 self.attachments.info(item).model_dump()
-                for item in self.attachments.references(db, owner, messages)
+                for item in self.attachments.references(db, owner, messages[-1:])
             ],
             "estimate_kind": "provider_key_remainder"
             if key_remainder
