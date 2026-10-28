@@ -70,6 +70,7 @@ export default function ImagePanel({
   );
   const submitting = useRef(false);
   const resultRef = useRef<HTMLElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const endpoint =
     details?.model.id === modelId
       ? details.endpoints.find((item) => item.provider_tag === provider)
@@ -418,6 +419,7 @@ export default function ImagePanel({
         <AttachmentPicker
           imageOnly
           label={copy.imageReferences}
+          pasteTarget={promptRef}
           items={files}
           onChange={setFiles}
           onBusyChange={setUploading}
@@ -439,6 +441,7 @@ export default function ImagePanel({
           <label htmlFor="image-prompt">{copy.imagePrompt}</label>
           <textarea
             id="image-prompt"
+            ref={promptRef}
             rows={3}
             maxLength={12000}
             placeholder={copy.imagePlaceholder}

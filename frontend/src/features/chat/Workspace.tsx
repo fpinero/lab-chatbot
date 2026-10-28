@@ -830,6 +830,7 @@ export default function Workspace({
               items={files}
               onChange={setFiles}
               label={copy.attachChat}
+              pasteTarget={messageRef}
               disabled={busy || !!editing}
               onFailure={failed}
               onBusyChange={setUploading}
