@@ -44,6 +44,10 @@ test("Pixel model search and privacy do not dispatch; long answers retain readin
     await route.fulfill({ response, json: data });
   });
   await signIn(page);
+  const mode = page.getByLabel("Mode", { exact: true });
+  await expect(mode).toHaveCSS("font-size", "16px");
+  await expect(mode.locator("option").first()).toHaveCSS("font-size", "18px");
+  expect((await mode.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   const picker = page.getByRole("combobox", { name: "Model", exact: true });
   await picker.fill("NeMoTrOn");
   const choices = page

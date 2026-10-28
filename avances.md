@@ -248,3 +248,8 @@ Entries are append-only. Record verified work and evidence without credentials o
 - Screenshots and sanitized logs remain in ignored artifacts, including mobile-compact-pixel.png and mobile-final-verification.log. Removed completed implementation work from TODO.md and retained physical Pixel keyboard/enlarged-text review, remaining M6 work and the owner-directed next release as pending. Local review is ready; this does not claim a production rollout of these changes.
 
 - Follow-up polish: Options now dismisses on outside interaction or prompt focus so it cannot obscure reading after composing. Its additional regression passes; the final frontend pass has 16 tests, 10 browser workflows, type/format checks and production build. Backend/contracts remain unchanged from the full 172-test pass. The private preview also exposes an explicitly simulated NVIDIA/Nemotron choice for local search review. No live provider request or deployment was added.
+
+## 2026-10-28: Readable mobile mode selector
+
+- Increased the mobile Chat/Compare/Image selector to a 16-pixel font, 18-pixel option text, a 112-pixel width and a minimum 44-pixel height. Native mobile browsers retain their platform menu presentation.
+- Type checking, formatting and all three Pixel 10 browser scenarios passed, including assertions for the control and option font sizes and touch-target height. The owner authorized merging the UI PR and deploying the next release for physical-phone review. No paid generation is required for this update.

@@ -4,7 +4,7 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 The owner authorized the first staged deployment from integrated main, ahead of the remaining application milestones. Version 1 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
 
-The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally for review at Pixel 10 dimensions (412 by 924). This handoff stops before registry publication or deployment of the UI changes.
+The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
 
 ## External verification prerequisites
 
