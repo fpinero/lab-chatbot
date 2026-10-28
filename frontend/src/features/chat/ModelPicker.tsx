@@ -192,7 +192,7 @@ export default function ModelPicker({
           </div>
           <p role="status">
             {filtered.length
-              ? `${filtered.length} models`
+              ? copy.modelCount(filtered.length)
               : copy.noMatchingModels}
           </p>
         </div>

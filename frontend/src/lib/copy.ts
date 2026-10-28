@@ -153,6 +153,7 @@ export const copy = {
   responseDetails: "Details",
   modelSearch: "Search models by name or publisher",
   noMatchingModels: "No matching models",
+  modelCount: (count: number) => `${count} ${count === 1 ? "model" : "models"}`,
   stop: "Stop generation",
   message: "Message",
   messagePlaceholder: "Ask something worth exploring...",
