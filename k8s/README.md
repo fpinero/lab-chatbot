@@ -183,6 +183,8 @@ k8s/scripts/rollback.sh --tag 1 --ack-schema-compatible --execute
 
 It preserves the current Deployment configuration and changes only the selected container image and release annotation using compare-and-swap. It never restores/deletes a PVC, downgrades migrations automatically or assumes a failed Recreate rollout leaves an old pod running. If schema compatibility is uncertain, stop and prepare a separate recovery operation.
 
+Version 6 deployed main revision `112d44f604662a913af7418d26bcb33f7aa619e3` at immutable digest `sha256:5377628d97aab55686d18e567b067dad753f22990e572e5c2130e74de5088c6f` on 2026-10-28. Explicit balance refresh now requires fresh provider data and shows loading, success or retryable failure inside Usage. Closing mobile navigation preserves the pending request, and delayed older balance reads cannot overwrite newer data. The owner authorized the brief offline-snapshot/update interruption. Encrypted recovery, isolated authenticated reads with versions 5/6, original row/file hashes, SQLite integrity, the same PVC and public assets/protected routes passed. Physical Android confirmation remains separate; no real provider generation was made.
+
 ## Diagnosis
 
 | Symptom | Check |
