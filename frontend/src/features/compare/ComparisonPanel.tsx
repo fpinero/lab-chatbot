@@ -17,6 +17,7 @@ import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
 import RunCard from "../chat/RunCard";
+import SavedPrompt from "../chat/SavedPrompt";
 
 export default function ComparisonPanel({
   hidden,
@@ -338,7 +339,7 @@ export default function ComparisonPanel({
                   group.status}
               </span>
             </div>
-            <div className="user-message">{group.candidates[0]?.prompt}</div>
+            <SavedPrompt text={group.candidates[0]?.prompt ?? ""} />
             <AttachmentPreview items={group.candidates[0]?.attachments ?? []} />
             <div className="comparison-results" ref={resultsRef}>
               {group.candidates.map((run) => (

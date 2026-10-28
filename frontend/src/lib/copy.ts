@@ -164,6 +164,11 @@ export const copy = {
   exportMarkdown: "Export Markdown",
   exportJson: "Export JSON",
   copyResponse: "Copy response",
+  copyPrompt: "Copy prompt",
+  copied: "Copied",
+  promptCopied: "Prompt copied to clipboard.",
+  promptCopyFailed:
+    "Could not copy. Select the prompt text and copy it manually.",
   copyCode: "Copy code",
   repeat: "Repeat with selected model",
   edit: "Edit as a new run",

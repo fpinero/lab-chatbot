@@ -269,3 +269,14 @@ Entries are append-only. Record verified work and evidence without credentials o
 
 - Corrected server validation to dry-run the same Deployment create/replace operation used by rollout. Existing Deployments use their live resourceVersion; the later saved-baseline checks and single CAS write remain unchanged. Infrastructure retains separate server-side apply validation, and no force-conflicts flag is used.
 - All 42 deployment/backup regressions passed, including three new create/replace/infrastructure dry-run scenarios. Ruff and formatting passed. The corrected replacement validation also passed against the real version 2 Deployment while its baseline remained unchanged. This tooling follow-up does not require another application image or rollout.
+
+## 2026-10-28: Deployment validation fix integrated
+
+- PR https://github.com/fpinero/lab-chatbot/pull/12 merged at 2026-10-28T10:43:03Z as `6269c6b5ab0023b36b50de2a9747b6808842126f`, after CI run 40673860767 passed on `30145072e00eeced335414da5922da0866252ccb` (175 backend tests, 16 frontend tests, 10 browser workflows and one intentional skip). Preserve `fix/deployment-update-validation` locally/remotely without cleanup before 2026-11-04T10:43:03Z. No application image or infrastructure was changed by this integration.
+
+## 2026-10-28: Copy saved prompts
+
+- Added a shared Copy prompt control beneath saved chat, comparison and image-generation prompts, with the existing visual style, a local outlined copy icon and a minimum 44-pixel touch target. It copies only the saved prompt text, preserves whitespace, and does not reuse original attachments, replace the current draft or dispatch a generation. The owner can paste it and attach another image explicitly.
+- Added visible Copied feedback and an accessible success announcement. Clipboard rejection or unavailable APIs retain the selectable original text, show a useful manual-copy message and allow retry. No clipboard contents are read by application code.
+- All 19 frontend tests and 11 real-browser workflows pass, with one intentional desktop skip. Unit checks cover exact multiline/Unicode/whitespace text, no form submission, denied/unavailable clipboard access, retry and feedback reset for a different prompt. Pixel checks use the actual browser clipboard, preserve a new draft/image while copying, then explicitly send the reused text with a different attachment ID and no retry_of reference. Desktop/mobile comparison and image-history copying also pass without extra dispatch. Types, formatting, production build and whitespace checks passed.
+- Inspected the 412 by 924 screenshot in ignored artifacts/copy-prompt-pixel.png: the control sits beneath the original prompt and the new image/draft remain in the composer. Verification uses synthetic data and no live provider request. The deployed version remains 2 until the separately verified next release is published.
