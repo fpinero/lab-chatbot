@@ -14,6 +14,7 @@ import { copy } from "../../lib/copy";
 import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
+import SavedPrompt from "../chat/SavedPrompt";
 
 const active = (job: MediaJobInfo) =>
   ["queued", "submitting", "running", "cancel_requested"].includes(job.status);
@@ -503,7 +504,7 @@ export default function ImagePanel({
                 {job.status === "succeeded" ? copy.completed : job.status}
               </span>
             </div>
-            <p className="image-saved-prompt">{job.prompt}</p>
+            <SavedPrompt text={job.prompt} className="image-saved-prompt" />
             <div className="answer-meta">
               <span>
                 {Object.entries(job.options)

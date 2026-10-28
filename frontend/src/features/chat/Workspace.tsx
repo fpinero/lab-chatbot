@@ -21,6 +21,7 @@ import {
 import { copy } from "../../lib/copy";
 import { useMobile } from "../../lib/useMobile";
 import RunCard from "./RunCard";
+import SavedPrompt from "./SavedPrompt";
 import ModelPicker from "./ModelPicker";
 import AttachmentPicker, {
   AttachmentPreview,
@@ -616,7 +617,7 @@ export default function Workspace({
               key={run.id}
               aria-label={`${run.model_name} ${run.turn}`}
             >
-              <div className="user-message">{run.prompt}</div>
+              <SavedPrompt text={run.prompt} />
               <RunCard
                 run={run}
                 actions={

@@ -169,6 +169,12 @@ test("attachments and independent comparison cards survive reload and continue i
     results.getByRole("status").filter({ hasText: "Completed" }),
   ).toHaveCount(3);
   expect(dispatches).toBe(1);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await panel.getByRole("button", { name: "Copy prompt", exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    prompt,
+  );
+  expect(dispatches).toBe(1);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -270,6 +276,14 @@ test("image generation is deliberate and saved private outputs survive reload", 
       .getByRole("img")
       .evaluate((image) => (image as HTMLImageElement).naturalWidth),
   ).toBe(1024);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await result
+    .getByRole("button", { name: "Copy prompt", exact: true })
+    .click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    prompt,
+  );
+  expect(dispatches).toBe(1);
   const mediaPath = await result
     .getByRole("link", { name: "Download image" })
     .getAttribute("href");

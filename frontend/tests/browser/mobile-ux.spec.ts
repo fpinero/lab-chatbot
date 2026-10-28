@@ -294,3 +294,75 @@ test("compact uploads preserve existing files and the draft after a rejected upl
     ).toBe(true);
   }
 });
+
+test("copying a saved prompt preserves the new draft and image until explicit sending", async ({
+  page,
+}) => {
+  const posts = countGenerations(page);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await signIn(page);
+  const prompt = "Describe this image.\n\nKeep the blank line.";
+  const input = page.getByLabel("Message", { exact: true });
+  const upload = page.getByLabel("Attach files to chat");
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 120;
+    canvas.height = 80;
+    canvas.getContext("2d")!.fillRect(0, 0, 120, 80);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await input.fill(prompt);
+  await upload.setInputFiles({
+    name: "first-image.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(image, "base64"),
+  });
+  await expect(page.locator(".compact-picker .attachment-item")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Send message", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Completed" }),
+  ).toHaveCount(1);
+  await input.fill("Keep this unsent draft");
+  await upload.setInputFiles({
+    name: "second-image.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(image, "base64"),
+  });
+  await expect(page.locator(".compact-picker .attachment-item")).toHaveCount(1);
+  const copyPrompt = page.getByRole("button", {
+    name: "Copy prompt",
+    exact: true,
+  });
+  await copyPrompt.click();
+  await expect(copyPrompt).toHaveText("Copied");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    prompt,
+  );
+  await expect(input).toHaveValue("Keep this unsent draft");
+  await expect(
+    page
+      .locator(".compact-picker")
+      .getByText("second-image.png", { exact: true }),
+  ).toBeVisible();
+  expect(posts).toHaveLength(1);
+  expect((await copyPrompt.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({
+    path: "../artifacts/copy-prompt-pixel.png",
+    fullPage: true,
+  });
+  await input.fill(await page.evaluate(() => navigator.clipboard.readText()));
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Completed" }),
+  ).toHaveCount(2);
+  expect(posts).toHaveLength(2);
+  const original = JSON.parse(posts[0]);
+  const reused = JSON.parse(posts[1]);
+  expect(reused.prompt).toBe(prompt);
+  expect(reused.attachment_ids).toHaveLength(1);
+  expect(reused.attachment_ids).not.toEqual(original.attachment_ids);
+  expect(reused.retry_of).toBeUndefined();
+});

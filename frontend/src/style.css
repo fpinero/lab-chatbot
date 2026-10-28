@@ -559,6 +559,31 @@ button:disabled {
   font-size: 14px;
   line-height: 1.7;
 }
+.saved-prompt > .user-message {
+  margin-bottom: 0;
+}
+.prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+.prompt-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 12px;
+}
+.prompt-copy svg {
+  flex-shrink: 0;
+}
+.image-job .prompt-actions {
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
 .answer {
   font-size: 14px;
   line-height: 1.8;
