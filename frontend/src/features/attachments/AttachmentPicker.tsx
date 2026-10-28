@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   ApiError,
   attachmentApi,
@@ -53,6 +60,7 @@ export default function AttachmentPicker({
   children,
   options,
   actions,
+  pasteTarget,
 }: {
   items: AttachmentInfo[];
   onChange: (items: AttachmentInfo[]) => void;
@@ -65,11 +73,20 @@ export default function AttachmentPicker({
   children?: ReactNode;
   options?: ReactNode;
   actions?: ReactNode;
+  pasteTarget?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const optionsRef = useRef<HTMLDetailsElement>(null);
+  const uploadPending = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   useEffect(() => {
     let mounted = true;
     void attachmentApi
@@ -101,28 +118,94 @@ export default function AttachmentPicker({
       document.removeEventListener("focusin", dismiss);
     };
   }, [compact]);
-  async function upload(files: File[]) {
-    if (!files.length || busy) return;
-    if (files.length + items.length > (limits?.files ?? 5)) {
-      setError(copy.tooManyFiles);
-      return;
-    }
-    setBusy(true);
-    onBusyChange?.(true);
-    setError("");
-    try {
-      const result = await attachmentApi.upload(files);
-      onChange([...items, ...result]);
-    } catch (error) {
-      setError(error instanceof ApiError ? error.message : copy.uploadFailed);
-      if (error instanceof ApiError && error.status === 401) onFailure(error);
-    } finally {
-      setBusy(false);
-      onBusyChange?.(false);
-    }
-  }
+  const upload = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      if (disabled || uploadPending.current) {
+        setError(
+          disabled ? copy.attachmentsUnavailable : copy.uploadInProgress,
+        );
+        return;
+      }
+      if (files.length + items.length > (limits?.files ?? 5)) {
+        setError(copy.tooManyFiles);
+        return;
+      }
+      if (
+        limits &&
+        (files.some((file) => file.size > limits.file_bytes) ||
+          files.reduce((total, file) => total + file.size, 0) >
+            limits.total_bytes)
+      ) {
+        setError(copy.uploadTooLarge);
+        return;
+      }
+      uploadPending.current = true;
+      setBusy(true);
+      onBusyChange?.(true);
+      setError("");
+      try {
+        const result = await attachmentApi.upload(files);
+        if (mounted.current) onChange([...items, ...result]);
+      } catch (error) {
+        if (!mounted.current) return;
+        setError(error instanceof ApiError ? error.message : copy.uploadFailed);
+        if (error instanceof ApiError && error.status === 401) onFailure(error);
+      } finally {
+        uploadPending.current = false;
+        if (mounted.current) {
+          setBusy(false);
+          onBusyChange?.(false);
+        }
+      }
+    },
+    [disabled, items, limits, onBusyChange, onChange, onFailure],
+  );
+  useEffect(() => {
+    const target = pasteTarget?.current;
+    if (!target) return;
+    const paste = (event: ClipboardEvent) => {
+      const clipboard = event.clipboardData;
+      if (!clipboard || target.disabled || target.readOnly) return;
+      const imageItems = Array.from(clipboard.items ?? [])
+        .filter(
+          (item) => item.kind === "file" && item.type.startsWith("image/"),
+        )
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+      const files = imageItems.length
+        ? imageItems
+        : Array.from(clipboard.files ?? []).filter((file) =>
+            file.type.startsWith("image/"),
+          );
+      if (!files.length) return;
+      event.preventDefault();
+      const extensions: Record<string, string> = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+      };
+      if (files.some((file) => !extensions[file.type])) {
+        setError(copy.clipboardImageUnsupported);
+        return;
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      void upload(
+        files.map(
+          (file, index) =>
+            new File(
+              [file],
+              `pasted-image-${stamp}-${index + 1}.${extensions[file.type]}`,
+              { type: file.type },
+            ),
+        ),
+      );
+    };
+    target.addEventListener("paste", paste);
+    return () => target.removeEventListener("paste", paste);
+  }, [pasteTarget, upload]);
   const control = (
-    <label className="file-button">
+    <label className="file-button" title={copy.pasteImagesHint}>
       {busy ? copy.uploading : compact ? copy.attachShort : copy.attachFiles}
       <input
         type="file"
@@ -169,7 +252,7 @@ export default function AttachmentPicker({
           onClick={() =>
             onChange(items.filter((value) => value.id !== item.id))
           }
-          disabled={disabled}
+          disabled={disabled || busy}
         >
           {copy.removeFromDraft}: {item.display_name}
         </button>

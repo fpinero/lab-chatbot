@@ -55,6 +55,7 @@ export default function ComparisonPanel({
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const resultsRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const submitting = useRef(false);
   const pending = useRef<{ fingerprint: string; key: string } | null>(null);
   const retryKeys = useRef(new Map<string, string>());
@@ -430,6 +431,7 @@ export default function ComparisonPanel({
             items={files}
             onChange={setFiles}
             label={copy.attachCompare}
+            pasteTarget={promptRef}
             disabled={busy}
             onFailure={failed}
             onBusyChange={setUploading}
@@ -480,6 +482,7 @@ export default function ComparisonPanel({
           </label>
           <textarea
             id="comparison-prompt"
+            ref={promptRef}
             rows={2}
             maxLength={24000}
             value={replay?.prompt ?? draft}

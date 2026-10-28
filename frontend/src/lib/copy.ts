@@ -108,6 +108,16 @@ export const copy = {
     "Preview shortened; the full extracted text is retained for context.",
   uploadFailed: "Upload failed. Check the file format and configured limits.",
   tooManyFiles: "This selection exceeds the configured attachment count.",
+  uploadTooLarge:
+    "This selection exceeds the configured file or upload size limit.",
+  uploadInProgress:
+    "An upload is in progress. Wait for it to finish, then paste again.",
+  attachmentsUnavailable:
+    "Attachments cannot be changed while this request or saved-input edit is active.",
+  clipboardImageUnsupported:
+    "Paste a PNG, JPEG or WebP image, or use Attach to choose a supported file.",
+  pasteImagesHint:
+    "You can also paste a screenshot into the prompt with Ctrl+V or Command+V.",
   incompatibleFiles:
     "Every selected model must support image input for these screenshots.",
   modelUnavailable: "Unavailable selected model",

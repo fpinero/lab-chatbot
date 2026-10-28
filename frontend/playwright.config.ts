@@ -22,7 +22,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      testIgnore: "**/mobile-ux.spec.ts",
+      testIgnore: ["**/mobile-ux.spec.ts", "**/clipboard.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 360, height: 740 },
