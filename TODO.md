@@ -8,6 +8,8 @@ The owner prioritized mobile reading space and model search ahead of the remaini
 
 ## External verification prerequisites
 
+- [ ] Deploy the integrated balance-refresh correction as version 6 after exact-source container verification and explicit authorization for the brief offline-snapshot/update interruption. Preserve existing production data and verify HTTPS, assets and history after rollout.
+
 
 
 - [ ] Verify remaining live vision/document/comparison/video flows within the shared provider key budget. Acceptance: sanitized real status/cost evidence and refreshed provider remainder, including usage outside this application.
