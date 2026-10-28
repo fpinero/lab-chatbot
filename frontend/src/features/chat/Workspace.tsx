@@ -59,6 +59,7 @@ export default function Workspace({
 }) {
   const [mode, setMode] = useState<"chat" | "compare" | "images">("chat");
   const [imagesVisited, setImagesVisited] = useState(false);
+  const [draftVersion, setDraftVersion] = useState(0);
   const [files, setFiles] = useState<AttachmentInfo[]>([]);
   const [uploading, setUploading] = useState(false);
   const [compareReplay, setCompareReplay] = useState<RunInfo | null>(null);
@@ -96,6 +97,7 @@ export default function Workspace({
   const writeRef = useRef<HTMLButtonElement>(null);
   const focusOnExpand = useRef(false);
   const focused = useRef<string | null>(null);
+  const conversationEpoch = useRef(0);
   const submitting = useRef(false);
   const pending = useRef<{ fingerprint: string; body: RunStart } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -116,7 +118,7 @@ export default function Workspace({
       focusOnExpand.current = false;
       messageRef.current?.focus({ preventScroll: true });
     }
-  }, [folded]);
+  }, [folded, draftVersion]);
   function expandComposer() {
     focusOnExpand.current = true;
     setCollapsed(false);
@@ -131,6 +133,29 @@ export default function Workspace({
     setDraft(editing.draft);
     setFiles(editing.files);
     setEditing(null);
+  }
+
+  function newConversation() {
+    if (submitting.current || uploading) return;
+    focused.current = null;
+    conversationEpoch.current += 1;
+    pending.current = null;
+    setConversation(null);
+    setAnswers([]);
+    setCompareReplay(null);
+    setEditing(null);
+    setDraft("");
+    setFiles([]);
+    setSystemPrompt("");
+    setMaximum(2048);
+    setTemperature("");
+    setError("");
+    setWarning("");
+    setMode("chat");
+    setNavigationOpen(false);
+    setDraftVersion(conversationEpoch.current);
+    followOutput.current = true;
+    expandComposer();
   }
 
   function failed(error: unknown) {
@@ -191,7 +216,9 @@ export default function Workspace({
         update(value.run);
         if (terminal(value.run)) {
           source.close();
-          void refreshUsage().catch(failed);
+          void refreshUsage().catch((error) => {
+            if (mounted) failed(error);
+          });
         }
       } catch {
         setError(copy.chatFailure);
@@ -215,13 +242,18 @@ export default function Workspace({
       void chatApi
         .run(active.id)
         .then((run) => {
+          if (!mounted) return;
           update(run);
           if (terminal(run)) {
             source.close();
-            void refreshUsage().catch(failed);
+            void refreshUsage().catch((error) => {
+              if (mounted) failed(error);
+            });
           }
         })
-        .catch(failed);
+        .catch((error) => {
+          if (mounted) failed(error);
+        });
     };
     return () => {
       mounted = false;
@@ -247,9 +279,11 @@ export default function Workspace({
   }, [draft, mode, folded]);
 
   async function open(item: ConversationInfo) {
+    const epoch = conversationEpoch.current;
     setError("");
     try {
       const saved = await chatApi.conversation(item.id);
+      if (epoch !== conversationEpoch.current) return;
       cancelEdit();
       focused.current = saved.id;
       setConversation(saved);
@@ -263,7 +297,7 @@ export default function Workspace({
       if (last && typeof last.settings.system_prompt === "string")
         setSystemPrompt(last.settings.system_prompt);
     } catch (error) {
-      failed(error);
+      if (epoch === conversationEpoch.current) failed(error);
     }
   }
 
@@ -359,12 +393,15 @@ export default function Workspace({
 
   async function stop() {
     if (!active) return;
+    const epoch = conversationEpoch.current;
     try {
-      update(await chatApi.cancel(active.id));
+      const saved = await chatApi.cancel(active.id);
+      if (epoch !== conversationEpoch.current) return;
+      update(saved);
       setWarning(copy.stopNotice);
       await refreshUsage();
     } catch (error) {
-      failed(error);
+      if (epoch === conversationEpoch.current) failed(error);
     }
   }
   async function rename() {
@@ -426,15 +463,8 @@ export default function Workspace({
         </a>
         <button
           className="new-conversation"
-          onClick={() => {
-            focused.current = null;
-            setConversation(null);
-            setCompareReplay(null);
-            setAnswers([]);
-            setNavigationOpen(false);
-            cancelEdit();
-            expandComposer();
-          }}
+          disabled={busy || uploading}
+          onClick={newConversation}
         >
           {copy.newConversation}
         </button>
@@ -501,12 +531,18 @@ export default function Workspace({
             <p>
               {copy.daily}: {usd(usage.daily_actual_microusd)}
             </p>
-            <p>
-              {copy.outstanding}: {usd(usage.outstanding_microusd)}
-            </p>
+            {usage.spend_control !== "provider" && (
+              <p>
+                {copy.outstanding}: {usd(usage.outstanding_microusd)}
+              </p>
+            )}
             <p>
               {copy.uncertain}: {usage.uncertain_count}
             </p>
+            {usage.spend_control === "provider" &&
+              usage.uncertain_count > 0 && (
+                <p>{copy.providerPendingAccounting}</p>
+              )}
           </section>
         )}
         <section className="sidebar-privacy" aria-label={copy.privacyHeading}>
@@ -738,6 +774,7 @@ export default function Workspace({
               </div>
             )}
             <AttachmentPicker
+              key={draftVersion}
               compact
               items={files}
               onChange={setFiles}
@@ -934,20 +971,24 @@ export default function Workspace({
         </div>
         {catalog && (
           <ComparisonPanel
+            key={`comparison-${draftVersion}`}
             hidden={mode !== "compare"}
             catalog={catalog}
             conversation={conversation}
             replay={compareReplay}
             clearReplay={() => setCompareReplay(null)}
             onConversation={(saved) => {
+              if (draftVersion !== conversationEpoch.current) return;
               if (saved.id !== conversation?.id) cancelEdit();
               setConversation(saved);
             }}
             expired={expired}
             onUsageChange={() => {
+              if (draftVersion !== conversationEpoch.current) return;
               void refreshUsage().catch(failed);
             }}
             onContinue={(saved) => {
+              if (draftVersion !== conversationEpoch.current) return;
               cancelEdit();
               focused.current = saved.id;
               setConversation(saved);
@@ -967,9 +1008,11 @@ export default function Workspace({
         {imagesVisited && (
           <Suspense fallback={<p>{copy.loading}</p>}>
             <ImagePanel
+              key={`images-${draftVersion}`}
               hidden={mode !== "images"}
               expired={expired}
               onUsageChange={() => {
+                if (draftVersion !== conversationEpoch.current) return;
                 void refreshUsage().catch(failed);
               }}
             />

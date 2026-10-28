@@ -29,6 +29,8 @@ Files use mode 0600 and the credential directory uses mode 0700. Existing files 
 
 `SPEND_CONTROL=provider` keeps the existing OpenRouter key budget shared across every modality. The manifests do not allocate a monetary amount per request, day or modality. `TRUSTED_PROXY_NETWORKS=[]` deliberately trusts no forwarded client identity until actual proxy peers are verified.
 
+In provider mode, fresh OpenRouter credit is authoritative for admission. Local estimates and unconfirmed accounting records are not subtracted from that balance again; an unknown-price estimate may represent the entire key remainder and is not an actual charge. Unknown records remain available for reconciliation. An exhausted/unreadable key budget still blocks dispatch, and request estimates must fit the reported remainder. Application-managed spending retains its separate conservative local reservation rules. See [OpenRouter credit limits](https://github.com/OpenRouterTeam/docs/blob/main/api_reference/limits.mdx).
+
 `RELEASE_READY=false` prevents production publication/deployment until local evidence and the intended integrated release are reviewed. `ORIGIN_TLS_VERIFIED=false` separately prevents rollout until the intended origin mode and connectivity are reviewed. Neither flag is provider spending authorization. New environments keep both false until their respective evidence exists; the template is not a record of the deployed environment.
 
 ## Isolated deployment tools

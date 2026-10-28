@@ -113,6 +113,8 @@ export const copy = {
   modelUnavailable: "Unavailable selected model",
   visionAllowance: "Configured vision allowance per model",
   providerSpending: "Spending controlled by OpenRouter",
+  providerPendingAccounting:
+    "Some request costs are unconfirmed. Available credit comes from OpenRouter; these records do not reserve that balance again.",
   providerKeyLimit: "Key budget",
   providerKeyRemaining: "Key remaining",
   providerBudgetUnavailable:

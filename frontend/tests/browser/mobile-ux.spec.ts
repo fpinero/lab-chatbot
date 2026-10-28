@@ -366,3 +366,86 @@ test("copying a saved prompt preserves the new draft and image until explicit se
   expect(reused.attachment_ids).not.toEqual(original.attachment_ids);
   expect(reused.retry_of).toBeUndefined();
 });
+
+test("New conversation clears failed mobile input, attachment, options and errors before a fresh send", async ({
+  page,
+}) => {
+  const posts = countGenerations(page);
+  await signIn(page);
+  const input = page.getByLabel("Message", { exact: true });
+  await input.fill("Previous failed prompt");
+  await page.getByLabel("Attach files to chat").setInputFiles({
+    name: "old-draft.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Old private context"),
+  });
+  await expect(page.locator(".compact-picker .attachment-item")).toHaveCount(1);
+  await page.getByText("Options", { exact: true }).click();
+  await page
+    .locator(".compact-picker")
+    .getByLabel("System prompt", { exact: true })
+    .fill("Old system context");
+  await page
+    .locator(".compact-picker")
+    .getByLabel("Maximum output tokens", { exact: true })
+    .fill("64");
+  await page.getByText("Options", { exact: true }).click();
+  await page.route("**/api/runs", (route) =>
+    route.fulfill({
+      status: 402,
+      json: {
+        error: {
+          message:
+            "The request and outstanding reservations exceed the OpenRouter key remainder.",
+        },
+      },
+    }),
+  );
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "outstanding reservations",
+  );
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("button", { name: "New conversation", exact: true })
+    .click();
+  await expect(input).toHaveValue("");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator(".compact-picker .attachment-item")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Send message", exact: true }),
+  ).toBeDisabled();
+  await page.getByText("Options", { exact: true }).click();
+  await expect(
+    page
+      .locator(".compact-picker")
+      .getByLabel("System prompt", { exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page
+      .locator(".compact-picker")
+      .getByLabel("Maximum output tokens", { exact: true }),
+  ).toHaveValue("2048");
+  await page.getByText("Options", { exact: true }).click();
+  expect(posts).toHaveLength(1);
+  await page.screenshot({
+    path: "../artifacts/new-conversation-clean-pixel.png",
+    fullPage: true,
+  });
+  await page.unroute("**/api/runs");
+  await input.fill("Fresh prompt without the old attachment");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Completed" }),
+  ).toHaveCount(1);
+  expect(posts).toHaveLength(2);
+  const old = JSON.parse(posts[0]),
+    fresh = JSON.parse(posts[1]);
+  expect(fresh.conversation_id).not.toBe(old.conversation_id);
+  expect(fresh.idempotency_key).not.toBe(old.idempotency_key);
+  expect(fresh).toMatchObject({
+    system_prompt: "",
+    attachment_ids: [],
+    max_tokens: 2048,
+  });
+});

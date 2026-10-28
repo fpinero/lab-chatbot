@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import App from "../src/App";
@@ -472,5 +472,157 @@ test("a draft changed while awaiting acknowledgement is neither cleared nor fold
   expect(input).toHaveValue("Hello next draft");
   expect(
     screen.queryByRole("button", { name: "Write a message" }),
+  ).not.toBeInTheDocument();
+});
+
+test("New conversation clears old drafts, settings, feedback and comparison input", async () => {
+  const fetcher = mockRequests(true, true);
+  render(<App />);
+  const option = (label: string) =>
+    within(
+      screen
+        .getByLabelText("Message", { exact: true })
+        .closest(".compact-picker") as HTMLElement,
+    ).getByLabelText(label);
+  await screen.findByLabelText("Message", { exact: true });
+  await userEvent.selectOptions(
+    screen.getByLabelText("Mode", { exact: true }),
+    "compare",
+  );
+  await userEvent.type(
+    screen.getByLabelText("Comparison prompt"),
+    "Old comparison draft",
+  );
+  await userEvent.selectOptions(
+    screen.getByLabelText("Mode", { exact: true }),
+    "chat",
+  );
+  await userEvent.click(screen.getByText("Options", { exact: true }));
+  await userEvent.type(option("System prompt"), "Old context");
+  await userEvent.clear(option("Maximum output tokens"));
+  await userEvent.type(option("Maximum output tokens"), "128");
+  await userEvent.type(
+    screen.getByLabelText("Message", { exact: true }),
+    "Old failed draft",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Synthetic failure",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "New conversation" }),
+  );
+  expect(screen.getByLabelText("Message", { exact: true })).toHaveValue("");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+  await userEvent.click(screen.getByText("Options", { exact: true }));
+  expect(option("System prompt")).toHaveValue("");
+  expect(option("Maximum output tokens")).toHaveValue(2048);
+  await userEvent.selectOptions(
+    screen.getByLabelText("Mode", { exact: true }),
+    "compare",
+  );
+  expect(screen.getByLabelText("Comparison prompt")).toHaveValue("");
+  await userEvent.selectOptions(
+    screen.getByLabelText("Mode", { exact: true }),
+    "chat",
+  );
+  await userEvent.type(
+    screen.getByLabelText("Message", { exact: true }),
+    "Fresh draft",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await screen.findByRole("alert");
+  const requests = fetcher.mock.calls
+    .filter(([url]) => String(url).endsWith("/runs"))
+    .map(([, options]) => JSON.parse(options?.body as string));
+  expect(requests).toHaveLength(2);
+  expect(requests[0].idempotency_key).not.toBe(requests[1].idempotency_key);
+  expect(requests[1]).toMatchObject({
+    prompt: "Fresh draft",
+    system_prompt: "",
+    max_tokens: 2048,
+    attachment_ids: [],
+  });
+});
+
+test("provider usage keeps unknown accounting visible without a duplicate balance reservation", async () => {
+  const fetcher = mockRequests(true, false, true);
+  const original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation((input, options) =>
+    String(input).endsWith("/usage")
+      ? Promise.resolve(
+          reply({
+            spend_control: "provider",
+            provider_key_budget: {
+              limit_usd: "9.9",
+              remaining_usd: "9.8",
+              used_usd: "0.1",
+              checked_at: 1700000000,
+            },
+            daily_actual_microusd: 100000,
+            outstanding_microusd: 9800000,
+            uncertain_count: 1,
+            simulated: false,
+          }),
+        )
+      : original(input, options),
+  );
+  render(<App />);
+  expect(await screen.findByText("Unknown billing records: 1")).toBeVisible();
+  expect(
+    screen.getByText(/Available credit comes from OpenRouter/),
+  ).toBeVisible();
+  expect(
+    screen.queryByText(/Outstanding reservations/),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText("Key remaining: $9.800000")).toBeVisible();
+});
+
+test("a late history response cannot reopen a conversation after New conversation", async () => {
+  const fetcher = mockRequests(true);
+  const original = fetcher.getMockImplementation()!;
+  let release!: (response: Response) => void;
+  const delayed = new Promise<Response>((resolve) => {
+    release = resolve;
+  });
+  fetcher.mockImplementation((input, options) => {
+    const url = String(input);
+    if (url.includes("/conversations?q="))
+      return Promise.resolve(
+        reply([{ id: "old-conversation", title: "Previous conversation" }]),
+      );
+    if (url.endsWith("/conversations/old-conversation")) return delayed;
+    return original(input, options);
+  });
+  render(<App />);
+  await userEvent.click(
+    await screen.findByRole("button", {
+      name: "Previous conversation",
+    }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "New conversation" }),
+  );
+  await userEvent.type(
+    screen.getByLabelText("Message", { exact: true }),
+    "New independent draft",
+  );
+  await act(async () => {
+    release(
+      reply({
+        id: "old-conversation",
+        title: "Previous conversation",
+        runs: [],
+      }),
+    );
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText("Message", { exact: true })).toHaveValue(
+      "New independent draft",
+    ),
+  );
+  expect(
+    screen.queryByRole("button", { name: "Rename conversation" }),
   ).not.toBeInTheDocument();
 });
