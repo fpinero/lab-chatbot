@@ -260,6 +260,20 @@ test("privacy remains available when usage fails and the compact controls keep s
   ).toHaveTextContent("Send");
 });
 
+test("Options dismisses when the reader returns to the prompt without submitting", async () => {
+  const fetcher = mockRequests(true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  const summary = screen.getByText("Options", { exact: true });
+  await userEvent.click(summary);
+  expect(summary.closest("details")).toHaveAttribute("open");
+  await userEvent.click(input);
+  expect(summary.closest("details")).not.toHaveAttribute("open");
+  expect(
+    fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
+  ).toBe(false);
+});
+
 test.each(["button", "Enter"])(
   "mobile preference folds only an accepted %s submission and stores no credentials",
   async (method) => {

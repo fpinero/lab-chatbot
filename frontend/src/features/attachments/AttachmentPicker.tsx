@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ApiError,
   attachmentApi,
@@ -69,12 +69,27 @@ export default function AttachmentPicker({
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const optionsRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     void attachmentApi.limits().then(setLimits).catch(onFailure);
   }, []);
   useEffect(() => {
     setError("");
   }, [items]);
+  useEffect(() => {
+    if (!compact) return;
+    const dismiss = (event: Event) => {
+      const panel = optionsRef.current;
+      if (panel?.open && !panel.contains(event.target as Node))
+        panel.open = false;
+    };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("focusin", dismiss);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("focusin", dismiss);
+    };
+  }, [compact]);
   async function upload(files: File[]) {
     if (!files.length || busy) return;
     if (files.length + items.length > (limits?.files ?? 5)) {
@@ -174,6 +189,7 @@ export default function AttachmentPicker({
         <div className="composer-toolbar">
           {control}
           <details
+            ref={optionsRef}
             className="composer-options"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
