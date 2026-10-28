@@ -301,15 +301,35 @@ def validate(config, objects, server=False):
             raise ReleaseError(
                 "Server dry-run of namespaced resources requires the staged namespace bootstrap first."
             )
-        config.kube(
-            "apply",
-            "--dry-run=server",
-            "--server-side",
-            "--field-manager=labchatbot-release",
-            "-f",
-            "-",
-            data=document,
-        )
+        infrastructure = []
+        for obj in objects:
+            if obj["kind"] != "Deployment":
+                infrastructure.append(obj)
+                continue
+            proposed = copy.deepcopy(obj)
+            current = config.get("deployment", obj["metadata"]["name"])
+            if current:
+                proposed["metadata"]["resourceVersion"] = current["metadata"][
+                    "resourceVersion"
+                ]
+            # Match the actual CAS write without claiming SSA field ownership.
+            config.kube(
+                "replace" if current else "create",
+                "--dry-run=server",
+                "-f",
+                "-",
+                data=json.dumps(proposed),
+            )
+        if infrastructure:
+            config.kube(
+                "apply",
+                "--dry-run=server",
+                "--server-side",
+                "--field-manager=labchatbot-release",
+                "-f",
+                "-",
+                data=yaml.safe_dump_all(infrastructure, sort_keys=False),
+            )
     return {
         "valid_resources": len(objects),
         "schema_version": "1.25.6",
