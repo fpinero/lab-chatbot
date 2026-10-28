@@ -82,6 +82,11 @@ export default function Workspace({
   const [maximum, setMaximum] = useState(2048);
   const [temperature, setTemperature] = useState("");
   const [usage, setUsage] = useState<UsageInfo | null>(null);
+  const [refreshingBalance, setRefreshingBalance] = useState(false);
+  const [balanceFeedback, setBalanceFeedback] = useState<
+    "updated" | "failed" | null
+  >(null);
+  const balanceRefreshPending = useRef(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -170,8 +175,34 @@ export default function Workspace({
         : [...previous, run],
     );
   }
+  function applyUsage(next: UsageInfo) {
+    setUsage((previous) =>
+      previous?.provider_key_budget &&
+      next.provider_key_budget &&
+      previous.provider_key_budget.checked_at >
+        next.provider_key_budget.checked_at
+        ? { ...next, provider_key_budget: previous.provider_key_budget }
+        : next,
+    );
+  }
   async function refreshUsage() {
-    setUsage(await chatApi.usage());
+    applyUsage(await chatApi.usage());
+  }
+  async function refreshBalance() {
+    if (balanceRefreshPending.current) return;
+    balanceRefreshPending.current = true;
+    setRefreshingBalance(true);
+    setBalanceFeedback(null);
+    try {
+      applyUsage(await chatApi.usage(true));
+      setBalanceFeedback("updated");
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) expired();
+      else setBalanceFeedback("failed");
+    } finally {
+      balanceRefreshPending.current = false;
+      setRefreshingBalance(false);
+    }
   }
 
   useEffect(() => {
@@ -188,7 +219,7 @@ export default function Workspace({
         setModelId(models.models[0]?.id ?? "");
         setHistory(conversations);
         setFavorites(preferences.favorites);
-        setUsage(spend);
+        applyUsage(spend);
       })
       .catch((error) => {
         if (mounted) failed(error);
@@ -522,10 +553,30 @@ export default function Workspace({
                 )}
                 <button
                   type="button"
-                  onClick={() => void refreshUsage().catch(failed)}
+                  className="balance-refresh"
+                  disabled={refreshingBalance}
+                  aria-busy={refreshingBalance}
+                  aria-label={copy.refreshUsage}
+                  onClick={() => void refreshBalance()}
                 >
-                  {copy.refreshUsage}
+                  {refreshingBalance
+                    ? copy.refreshingBalance
+                    : copy.refreshUsage}
                 </button>
+                {balanceFeedback && (
+                  <p
+                    className={
+                      balanceFeedback === "failed"
+                        ? "balance-error"
+                        : "balance-feedback"
+                    }
+                    role={balanceFeedback === "failed" ? "alert" : "status"}
+                  >
+                    {balanceFeedback === "failed"
+                      ? copy.balanceRefreshFailed
+                      : copy.balanceUpdated}
+                  </p>
+                )}
               </>
             )}
             <p>

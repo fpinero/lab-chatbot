@@ -95,7 +95,8 @@ export const chatApi = {
   run: (id: string) => request<RunInfo>(`/runs/${id}`),
   cancel: (id: string) => request<RunInfo>(`/runs/${id}/cancel`, "POST"),
   reconcile: (id: string) => request<RunInfo>(`/runs/${id}/reconcile`, "POST"),
-  usage: () => request<UsageInfo>("/usage"),
+  usage: (refresh = false) =>
+    request<UsageInfo>(refresh ? "/usage?refresh=true" : "/usage"),
   favorites: () => request<{ favorites: string[] }>("/preferences"),
   saveFavorites: (favorites: string[]) =>
     request<{ favorites: string[] }>("/preferences", "PATCH", { favorites }),

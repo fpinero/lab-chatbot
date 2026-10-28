@@ -4161,7 +4161,9 @@ export interface operations {
   };
   usage_api_usage_get: {
     parameters: {
-      query?: never;
+      query?: {
+        refresh?: boolean;
+      };
       header?: never;
       path?: never;
       cookie?: never;

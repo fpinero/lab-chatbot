@@ -68,7 +68,7 @@ function mockRequests(
           ranking: "Simulated catalog",
         });
       if (url.endsWith("/preferences")) return reply({ favorites: [] });
-      if (url.endsWith("/usage"))
+      if (url.split("?")[0].endsWith("/usage"))
         return reply({
           spend_control: providerBudget ? "provider" : "application",
           provider_key_budget: providerBudget
@@ -121,7 +121,9 @@ test("provider balance shows the shared key budget and refresh never generates",
     screen.getByRole("button", { name: "Refresh balance" }),
   );
   expect(
-    fetcher.mock.calls.filter(([url]) => String(url).endsWith("/usage")),
+    fetcher.mock.calls.filter(([url]) =>
+      String(url).split("?")[0].endsWith("/usage"),
+    ),
   ).toHaveLength(2);
   expect(
     fetcher.mock.calls.some(([, options]) => options?.method === "POST"),
@@ -625,4 +627,98 @@ test("a late history response cannot reopen a conversation after New conversatio
   expect(
     screen.queryByRole("button", { name: "Rename conversation" }),
   ).not.toBeInTheDocument();
+});
+
+test("manual balance failure stays visible in Usage and can be retried", async () => {
+  const fetcher = mockRequests(true, false, true),
+    original = fetcher.getMockImplementation()!;
+  let fail = true;
+  fetcher.mockImplementation((input, options) =>
+    String(input).endsWith("/usage?refresh=true")
+      ? Promise.resolve(
+          fail
+            ? reply({ error: { message: "Temporary provider failure" } }, 503)
+            : reply({
+                spend_control: "provider",
+                simulated: false,
+                provider_key_budget: {
+                  limit_usd: "9.9",
+                  remaining_usd: "8.4",
+                  used_usd: "1.5",
+                  checked_at: 1700000060,
+                },
+                daily_actual_microusd: 0,
+                outstanding_microusd: 0,
+                uncertain_count: 0,
+              }),
+        )
+      : original(input, options),
+  );
+  render(<App />);
+  await screen.findByText("Key remaining: $8.500000");
+  const region = screen.getByRole("region", { name: "Usage" });
+  await userEvent.click(
+    within(region).getByRole("button", { name: "Refresh balance" }),
+  );
+  expect(await within(region).findByRole("alert")).toHaveTextContent(
+    "Could not refresh balance.",
+  );
+  expect(screen.getByText("Key remaining: $8.500000")).toBeVisible();
+  fail = false;
+  await userEvent.click(
+    within(region).getByRole("button", { name: "Refresh balance" }),
+  );
+  expect(await within(region).findByRole("status")).toHaveTextContent(
+    "Balance updated.",
+  );
+  expect(screen.getByText("Key remaining: $8.400000")).toBeVisible();
+  expect(within(region).queryByRole("alert")).not.toBeInTheDocument();
+  expect(
+    fetcher.mock.calls.some(([, options]) => options?.method === "POST"),
+  ).toBe(false);
+});
+
+test("an older automatic read cannot overwrite a newer manual balance", async () => {
+  const fetcher = mockRequests(true, false, true),
+    original = fetcher.getMockImplementation()!;
+  let reads = 0,
+    release!: (response: Response) => void;
+  const delayed = new Promise<Response>((resolve) => {
+    release = resolve;
+  });
+  const value = (remaining: string, time: number) => ({
+    spend_control: "provider",
+    simulated: false,
+    provider_key_budget: {
+      limit_usd: "9.9",
+      remaining_usd: remaining,
+      used_usd: "0.1",
+      checked_at: time,
+    },
+    daily_actual_microusd: 0,
+    outstanding_microusd: 0,
+    uncertain_count: 0,
+  });
+  fetcher.mockImplementation((input, options) => {
+    const path = String(input);
+    if (path.endsWith("/usage?refresh=true"))
+      return Promise.resolve(reply(value("8.3", 1700000120)));
+    if (path.endsWith("/usage") && ++reads === 2) return delayed;
+    return original(input, options);
+  });
+  render(<App />);
+  await userEvent.type(
+    await screen.findByLabelText("Message", { exact: true }),
+    "Synthetic refresh race",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(reads).toBe(2));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Refresh balance" }),
+  );
+  expect(await screen.findByText("Key remaining: $8.300000")).toBeVisible();
+  await act(async () => {
+    release(reply(value("8.4", 1700000060)));
+  });
+  expect(screen.getByText("Key remaining: $8.300000")).toBeVisible();
 });

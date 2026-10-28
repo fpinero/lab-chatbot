@@ -318,7 +318,7 @@ class UsageInfo(BaseModel):
 
 
 @router.get("/usage", response_model=UsageInfo)
-async def usage(request: Request) -> UsageInfo:
+async def usage(request: Request, refresh: bool = Query(default=False)) -> UsageInfo:
     from app.services.runs import allowance_microusd
 
     service = runs(request)
@@ -326,7 +326,8 @@ async def usage(request: Request) -> UsageInfo:
         try:
             await service.refresh_provider_budget(refresh=True)
         except AuthError:
-            pass
+            if refresh:
+                raise
     day = service.now() // 86400 * 86400
     actual, reserved, uncertain = 0, 0, 0
     totals: dict[str, int] = {}
