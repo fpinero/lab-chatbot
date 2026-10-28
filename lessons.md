@@ -26,3 +26,7 @@
 ## 2026-10-28: Upload cleanup and parent busy state
 
 - Suppressing asynchronous results after unmount must also release any busy flag owned by a still-mounted caller. Notify that caller during detachment, then ignore the eventual completion entirely, so an old request cannot clear a newer request's state. Test both immediate cleanup and delayed resolution, including components conditionally removed while their parent remains visible.
+
+## 2026-10-28: Inspect a completed rollout before retrying
+
+- A ready pod and successful Deployment replacement can precede successful public routing. Version 7's first immediate public-root read returned 404, then repeated read-only root/health checks returned 200 with the same deployed image and endpoint. Inspect the deployed receipt, pod, endpoint and public responses before retrying any mutation; do not republish or increment a tag to address a transient health-check failure. The precise cause of this brief 404 was not established.

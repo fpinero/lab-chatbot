@@ -185,6 +185,8 @@ It preserves the current Deployment configuration and changes only the selected 
 
 Version 6 deployed main revision `112d44f604662a913af7418d26bcb33f7aa619e3` at immutable digest `sha256:5377628d97aab55686d18e567b067dad753f22990e572e5c2130e74de5088c6f` on 2026-10-28. Explicit balance refresh now requires fresh provider data and shows loading, success or retryable failure inside Usage. Closing mobile navigation preserves the pending request, and delayed older balance reads cannot overwrite newer data. The owner authorized the brief offline-snapshot/update interruption. Encrypted recovery, isolated authenticated reads with versions 5/6, original row/file hashes, SQLite integrity, the same PVC and public assets/protected routes passed. Physical Android confirmation remains separate; no real provider generation was made.
 
+Version 7 deployed main revision `453a71bf016d3319b1bcf983a8b0acfb19961cd5` at immutable digest `sha256:17eeb4022bb0613a0bbdad9577662285e17c2d8ead2d8bb18782c74b126025a7` on 2026-10-28. It adds PNG/JPEG/WebP clipboard paste to Chat, Compare and Image prompts through the existing authenticated attachment flow. Paste preserves text, supports preview/removal and requires an explicit generation action. Fresh encrypted recovery, isolated history reads with versions 6/7, original row/file hashes, SQLite integrity, the same PVC and public asset/protected-route checks passed. The first immediate public check returned a transient 404 after a successful rollout; live-state inspection and subsequent read-only checks passed without a second Deployment write. Physical platform/browser paste checks remain separate.
+
 ## Diagnosis
 
 | Symptom | Check |
