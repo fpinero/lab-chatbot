@@ -80,7 +80,7 @@ def test_provider_budget_replaces_local_caps_and_includes_external_usage(setting
         assert all("max_price" not in call["provider"] for call in provider.calls)
 
 
-def test_shared_key_reservations_block_images_and_comparisons(settings_factory):
+def test_provider_balance_is_not_debited_again_for_unconfirmed_local_costs(settings_factory):
     provider, images = BudgetProvider("0.0015"), ControlledImages(result="missing_usage")
     app = create_app(live_settings(settings_factory), chat_provider=provider, image_provider=images)
     with TestClient(app) as client:
@@ -91,7 +91,8 @@ def test_shared_key_reservations_block_images_and_comparisons(settings_factory):
         assert response.status_code == 202, response.text
         assert finish_image(client, response.json()["id"])["accounting_state"] == "uncertain"
         response = client.post("/api/images/jobs", headers=headers, json=body())
-        assert response.status_code == 402
+        assert response.status_code == 202, response.text
+        assert finish_image(client, response.json()["id"])["accounting_state"] == "uncertain"
         response = client.post(
             "/api/comparisons",
             headers=headers,
@@ -103,9 +104,13 @@ def test_shared_key_reservations_block_images_and_comparisons(settings_factory):
                 "idempotency_key": uuid4().hex,
             },
         )
-        assert response.status_code == 402, response.text
-        assert len(images.calls) == 1 and not provider.calls
-        assert client.get("/api/usage").json()["outstanding_microusd"] == 1000
+        assert response.status_code == 202, response.text
+        for candidate in response.json()["candidates"]:
+            finish(client, candidate["id"])
+        assert len(images.calls) == 2 and len(provider.calls) == 2
+        usage = client.get("/api/usage").json()
+        assert usage["outstanding_microusd"] == 2000
+        assert usage["uncertain_count"] == 2
 
 
 def test_uncertain_image_pricing_uses_key_remainder_without_modality_allowance(settings_factory):
@@ -247,3 +252,52 @@ def test_provider_budget_refresh_and_effective_remaining(settings_factory):
             await provider.close()
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("image_input", [False, True])
+def test_failed_full_remainder_estimate_does_not_lock_provider_key(settings_factory, image_input):
+    class RejectedProvider(BudgetProvider):
+        async def catalog(self):
+            models = await super().catalog()
+            if not image_input:
+                for model in models:
+                    model["pricing"] = {"request": "0.0001"}
+            return models
+
+        async def stream(self, payload):
+            if not self.calls:
+                self.calls.append(payload)
+                raise ProviderError("provider_unavailable")
+            async for chunk in super().stream(payload):
+                yield chunk
+
+    provider = RejectedProvider("0.02")
+    app = create_app(live_settings(settings_factory), chat_provider=provider)
+    with TestClient(app) as client:
+        headers = signin(client)
+        attachments = (
+            upload(client, headers, "fixture.png", png(), "image/png").json() if image_input else []
+        )
+        first = start(
+            client,
+            headers,
+            new_conversation(client, headers),
+            attachment_ids=[a["id"] for a in attachments],
+        )
+        assert first.status_code == 202, first.text
+        saved = finish(client, first.json()["id"])
+        assert saved["status"] == "failed" and saved["generation_id"] is None
+        assert saved["accounting_state"] == "uncertain" and saved["reserved_microusd"] == 20000
+        provider.remaining = Decimal("0.019999475")
+        second = start(client, headers, new_conversation(client, headers), max_tokens=32)
+        assert second.status_code == 202, second.text
+        finish(client, second.json()["id"])
+        original = client.get("/api/runs/" + first.json()["id"]).json()
+        assert original["accounting_state"] == "uncertain" and original["actual_microusd"] is None
+        assert original["reserved_microusd"] == 20000
+        assert len(provider.calls) == 2
+        provider.remaining = Decimal("0")
+        assert start(client, headers, new_conversation(client, headers)).status_code == 402
+        provider.budget_unavailable = True
+        assert start(client, headers, new_conversation(client, headers)).status_code == 503
+        assert len(provider.calls) == 2

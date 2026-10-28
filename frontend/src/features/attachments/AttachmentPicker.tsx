@@ -71,7 +71,18 @@ export default function AttachmentPicker({
   const [error, setError] = useState("");
   const optionsRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    void attachmentApi.limits().then(setLimits).catch(onFailure);
+    let mounted = true;
+    void attachmentApi
+      .limits()
+      .then((value) => {
+        if (mounted) setLimits(value);
+      })
+      .catch((error) => {
+        if (mounted) onFailure(error);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
   useEffect(() => {
     setError("");

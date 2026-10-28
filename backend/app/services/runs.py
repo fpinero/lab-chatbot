@@ -328,20 +328,14 @@ class RunService:
                 raise AuthError(
                     503, "provider_budget_unavailable", "Verify the OpenRouter key budget first."
                 )
-            outstanding = int(
-                db.scalar(
-                    select(func.coalesce(func.sum(Charge.reserved_microusd), 0)).where(
-                        Charge.owner_id == owner, Charge.state.in_(["reserved", "uncertain"])
-                    )
-                )
-                or 0
-            )
             remaining = allowance_microusd(self.provider_budget.remaining_usd)
-            if remaining <= 0 or outstanding + reservation > remaining:
+            # Provider balance is authoritative; local estimates are not another debit.
+            # Preserve unconfirmed charges for reconciliation without locking the key.
+            if remaining <= 0 or reservation > remaining:
                 raise AuthError(
                     402,
                     "provider_budget_limit",
-                    "The request and outstanding reservations exceed the OpenRouter key remainder.",
+                    "The request estimate exceeds the available OpenRouter key balance.",
                 )
         else:
             request_limit = (
