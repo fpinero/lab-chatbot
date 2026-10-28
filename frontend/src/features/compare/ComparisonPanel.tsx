@@ -474,11 +474,6 @@ export default function ComparisonPanel({
           </div>
         </details>
         <section className="preview-panel">
-          <div className="notice">
-            {selectedModels.every((model) => model.simulated)
-              ? copy.mockNotice
-              : copy.privacy}
-          </div>
           <label className="sr-only" htmlFor="comparison-prompt">
             {copy.comparePrompt}
           </label>

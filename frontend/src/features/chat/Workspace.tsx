@@ -2,6 +2,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -18,8 +19,12 @@ import {
   type UsageInfo,
 } from "../../lib/api";
 import { copy } from "../../lib/copy";
+import { useMobile } from "../../lib/useMobile";
 import RunCard from "./RunCard";
-import AttachmentPicker from "../attachments/AttachmentPicker";
+import ModelPicker from "./ModelPicker";
+import AttachmentPicker, {
+  AttachmentPreview,
+} from "../attachments/AttachmentPicker";
 import ComparisonPanel from "../compare/ComparisonPanel";
 
 const ImagePanel = lazy(() => import("../images/ImagePanel"));
@@ -31,6 +36,14 @@ const price = (value: string) =>
     maximumFractionDigits: 6,
   });
 const usd = (micro: number) => `$${(micro / 1_000_000).toFixed(6)}`;
+const collapsePreferenceKey = "lab-chatbot.mobile-collapse";
+function savedCollapsePreference() {
+  try {
+    return localStorage.getItem(collapsePreferenceKey) === "true";
+  } catch {
+    return false;
+  }
+}
 
 export default function Workspace({
   ownerSession,
@@ -58,6 +71,11 @@ export default function Workspace({
   const [favorites, setFavorites] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState<{
+    run: RunInfo;
+    draft: string;
+    files: AttachmentInfo[];
+  } | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [maximum, setMaximum] = useState(2048);
   const [temperature, setTemperature] = useState("");
@@ -66,18 +84,53 @@ export default function Workspace({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
+  const mobile = useMobile();
+  const [collapseAfterSend, setCollapseAfterSend] = useState(
+    savedCollapsePreference,
+  );
+  const [collapsed, setCollapsed] = useState(false);
+  const folded = mobile && collapsed;
+  const draftNow = useRef(draft);
+  draftNow.current = draft;
+  const writeRef = useRef<HTMLButtonElement>(null);
+  const focusOnExpand = useRef(false);
   const focused = useRef<string | null>(null);
   const submitting = useRef(false);
   const pending = useRef<{ fingerprint: string; body: RunStart } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const followOutput = useRef(true);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
   const active = answers.find((run) => !terminal(run));
   const incompatible =
-    files.some((item) => item.kind === "image") &&
+    (editing?.run.attachments ?? files).some((item) => item.kind === "image") &&
     !!catalog?.models.find(
       (model) =>
         model.id === modelId && !model.input_modalities.includes("image"),
     );
   const selected = catalog?.models.find((model) => model.id === modelId);
+
+  useEffect(() => {
+    if (folded) writeRef.current?.focus({ preventScroll: true });
+    else if (focusOnExpand.current) {
+      focusOnExpand.current = false;
+      messageRef.current?.focus({ preventScroll: true });
+    }
+  }, [folded]);
+  function expandComposer() {
+    focusOnExpand.current = true;
+    setCollapsed(false);
+    if (!folded) messageRef.current?.focus({ preventScroll: true });
+  }
+  function hideComposer() {
+    messageRef.current?.blur();
+    setCollapsed(true);
+  }
+  function cancelEdit() {
+    if (!editing) return;
+    setDraft(editing.draft);
+    setFiles(editing.files);
+    setEditing(null);
+  }
 
   function failed(error: unknown) {
     if (error instanceof ApiError && error.status === 401) expired();
@@ -176,18 +229,35 @@ export default function Workspace({
   }, [active?.id]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "nearest" });
-  }, [answers.at(-1)?.output]);
+    if (followOutput.current)
+      endRef.current?.scrollIntoView({ block: "nearest" });
+  }, [answers.at(-1)?.output, folded]);
+
+  useLayoutEffect(() => {
+    const resize = () => {
+      const input = messageRef.current;
+      if (!input) return;
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [draft, mode, folded]);
 
   async function open(item: ConversationInfo) {
     setError("");
     try {
       const saved = await chatApi.conversation(item.id);
+      cancelEdit();
       focused.current = saved.id;
       setConversation(saved);
+      followOutput.current = true;
       setAnswers(saved.runs.filter((run) => !run.comparison_id));
       setCompareReplay(null);
       setNavigationOpen(false);
+      if (mobile && collapseAfterSend && !draft.trim() && !files.length)
+        hideComposer();
       const last = saved.runs.at(-1);
       if (last && typeof last.settings.system_prompt === "string")
         setSystemPrompt(last.settings.system_prompt);
@@ -202,19 +272,25 @@ export default function Workspace({
     editedPrompt?: string,
   ) {
     event?.preventDefault();
+    const editSubmission = !retryOf ? editing : null;
+    if (editSubmission) {
+      retryOf = editSubmission.run;
+      editedPrompt = draft;
+    }
     if (
       submitting.current ||
       uploading ||
       incompatible ||
       active ||
       !selected ||
-      (!retryOf && !draft.trim())
+      ((!retryOf || editSubmission) && !draft.trim())
     )
       return;
     submitting.current = true;
     setBusy(true);
     setError("");
     setWarning("");
+    let accepted = false;
     try {
       const item =
         conversation ??
@@ -246,9 +322,24 @@ export default function Workspace({
         body.idempotency_key = pending.current.body.idempotency_key;
       pending.current = { fingerprint, body };
       const run = await chatApi.submit(body);
+      accepted = true;
+      followOutput.current = true;
       update(run);
       pending.current = null;
-      if (!retryOf) {
+      if (
+        (!retryOf || editSubmission) &&
+        mobile &&
+        collapseAfterSend &&
+        draftNow.current === draft
+      )
+        hideComposer();
+      if (editSubmission) {
+        setEditing(null);
+        setDraft((previous) =>
+          previous === draft ? editSubmission.draft : previous,
+        );
+        setFiles(editSubmission.files);
+      } else if (!retryOf) {
         setDraft((previous) => (previous === draft ? "" : previous));
         setFiles((previous) =>
           previous.filter((item) => !body.attachment_ids?.includes(item.id)),
@@ -257,6 +348,7 @@ export default function Workspace({
       setHistory(await chatApi.history(search));
       await refreshUsage();
     } catch (error) {
+      if (!accepted) setCollapsed(false);
       failed(error);
     } finally {
       submitting.current = false;
@@ -289,6 +381,7 @@ export default function Workspace({
     if (!conversation || !window.confirm(copy.deleteConfirmation)) return;
     try {
       await chatApi.remove(conversation.id);
+      cancelEdit();
       focused.current = null;
       setConversation(null);
       setAnswers([]);
@@ -338,6 +431,8 @@ export default function Workspace({
             setCompareReplay(null);
             setAnswers([]);
             setNavigationOpen(false);
+            cancelEdit();
+            expandComposer();
           }}
         >
           {copy.newConversation}
@@ -413,6 +508,14 @@ export default function Workspace({
             </p>
           </section>
         )}
+        <section className="sidebar-privacy" aria-label={copy.privacyHeading}>
+          <span className="eyebrow">{copy.privacyHeading}</span>
+          <p>
+            {ownerSession.provider_mode === "mock"
+              ? copy.mockNotice
+              : copy.privacy}
+          </p>
+        </section>
       </aside>
       <main>
         <header>
@@ -425,9 +528,11 @@ export default function Workspace({
             {copy.appName}
           </button>
           <span className="badge">
-            {ownerSession.environment === "production"
-              ? copy.production
-              : copy.development}
+            {ownerSession.provider_mode === "mock"
+              ? copy.simulated
+              : ownerSession.environment === "production"
+                ? copy.production
+                : copy.development}
           </span>
           <span className="version">{copy.version}</span>
           <button className="sign-out" onClick={signOut}>
@@ -453,24 +558,26 @@ export default function Workspace({
             <option value="compare">{copy.compare}</option>
             <option value="images">{copy.images}</option>
           </select>
-          <label className="sr-only" htmlFor="model">
-            {copy.model}
-          </label>
-          <select
-            id="model"
-            hidden={mode !== "chat"}
-            value={modelId}
-            onChange={(event) => setModelId(event.target.value)}
-          >
-            {catalog?.models.map((model) => (
-              <option key={model.id} value={model.id}>
-                {favorites.includes(model.id) ? `${copy.favorites}: ` : ""}
-                {model.name}
-              </option>
-            ))}
-          </select>
+          <div hidden={mode !== "chat"} className="chat-model-picker">
+            <ModelPicker
+              models={catalog?.models ?? []}
+              value={modelId}
+              onChange={setModelId}
+              favorites={favorites}
+            />
+          </div>
         </div>
-        <div hidden={mode !== "chat"} className="chat-scroll">
+        <div
+          hidden={mode !== "chat"}
+          className="chat-scroll"
+          role="region"
+          aria-label="Conversation"
+          onScroll={(event) => {
+            const area = event.currentTarget;
+            followOutput.current =
+              area.scrollHeight - area.scrollTop - area.clientHeight < 80;
+          }}
+        >
           {answers.length === 0 && (
             <section className="intro chat-intro">
               <span className="eyebrow">{copy.subtitle}</span>
@@ -516,27 +623,30 @@ export default function Workspace({
                   <>
                     <button
                       className="plain-button"
-                      disabled={busy || !!active}
+                      disabled={busy || !!active || !!editing}
                       onClick={() => void submit(undefined, run)}
                     >
                       {copy.repeat}
                     </button>
                     <button
                       className="plain-button"
-                      disabled={busy || !!active}
+                      disabled={busy || !!active || !!editing}
                       onClick={() => {
-                        const edited = window.prompt(
-                          copy.editPrompt,
-                          run.prompt,
-                        );
-                        if (edited?.trim()) void submit(undefined, run, edited);
+                        setEditing((previous) => ({
+                          run,
+                          draft: previous?.draft ?? draft,
+                          files: previous?.files ?? files,
+                        }));
+                        setDraft(run.prompt);
+                        setFiles([]);
+                        expandComposer();
                       }}
                     >
                       {copy.edit}
                     </button>
                     <button
                       className="plain-button"
-                      disabled={busy || !!active}
+                      disabled={busy || !!active || !!editing}
                       onClick={() => {
                         setCompareReplay(run);
                         setMode("compare");
@@ -577,143 +687,249 @@ export default function Workspace({
             </p>
           )}
           {catalog?.stale && <p className="notice">{copy.stale}</p>}
-          <AttachmentPicker
-            items={files}
-            onChange={setFiles}
-            label={copy.attachChat}
-            disabled={busy}
-            onFailure={failed}
-            onBusyChange={setUploading}
-          />
           {incompatible && (
             <p role="alert" className="error">
               {copy.incompatibleFiles}
             </p>
           )}
-          <details>
-            <summary>{copy.advanced}</summary>
-            <div className="model-preferences">
-              {" "}
+          {folded && (
+            <div className="collapsed-composer">
               <button
-                className="plain-button"
-                aria-pressed={favorites.includes(modelId)}
-                onClick={() => void favorite()}
-                disabled={!selected}
+                type="button"
+                ref={writeRef}
+                aria-expanded={false}
+                aria-controls="composer-editor"
+                onClick={expandComposer}
               >
-                {copy.favorite}
+                {uploading
+                  ? copy.uploading
+                  : draft.trim()
+                    ? copy.resumeDraft
+                    : copy.writeMessage}
               </button>
-              <button
-                className="plain-button"
-                onClick={() => {
-                  void chatApi.refreshCatalog().then(setCatalog).catch(failed);
-                }}
-              >
-                {copy.refreshModels}
-              </button>
-            </div>
-            <div className="advanced-grid">
-              <label>
-                {copy.systemPrompt}
-                <textarea
-                  value={systemPrompt}
-                  maxLength={12000}
-                  rows={2}
-                  onChange={(event) => setSystemPrompt(event.target.value)}
-                />
-              </label>
-              {selected?.supported_parameters.includes("max_tokens") && (
-                <label>
-                  {copy.maxTokens}
-                  <input
-                    type="number"
-                    min={1}
-                    max={2048}
-                    value={maximum}
-                    onChange={(event) => setMaximum(Number(event.target.value))}
-                  />
-                </label>
-              )}
-              {selected?.supported_parameters.includes("temperature") && (
-                <label>
-                  {copy.temperature}
-                  <input
-                    type="number"
-                    min={0}
-                    max={2}
-                    step={0.1}
-                    value={temperature}
-                    onChange={(event) => setTemperature(event.target.value)}
-                  />
-                </label>
+              {active && (
+                <button
+                  type="button"
+                  aria-label={copy.stop}
+                  onClick={() => void stop()}
+                >
+                  {copy.stopShort}
+                </button>
               )}
             </div>
-          </details>
-          <section className="preview-panel">
-            <div className="notice">
-              {ownerSession.provider_mode === "mock"
-                ? copy.mockNotice
-                : copy.privacy}
-            </div>
-            <form onSubmit={(event) => void submit(event)}>
-              <label className="sr-only" htmlFor="message">
-                {copy.message}
-              </label>
-              <textarea
-                id="message"
-                rows={2}
-                maxLength={24000}
-                placeholder={copy.messagePlaceholder}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    !event.shiftKey &&
-                    !event.nativeEvent.isComposing
-                  ) {
-                    event.preventDefault();
-                    void submit();
-                  }
-                }}
-              />
-              <div className="composer-footer">
-                <span>
-                  {selected
-                    ? `${copy.context}: ${selected.context_length.toLocaleString()}`
-                    : copy.loading}
-                </span>
-                {active ? (
-                  <button type="button" onClick={() => void stop()}>
-                    {copy.stop}
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      incompatible ||
-                      !draft.trim() ||
-                      !selected
-                    }
-                  >
-                    {busy ? copy.sending : copy.send}
-                  </button>
-                )}
-              </div>
-            </form>
-          </section>
-          {selected && (
-            <p className="model-detail">
-              {price(selected.pricing.prompt)} /{" "}
-              {price(selected.pricing.completion)} {copy.priceUnit}
-            </p>
           )}
-          <p className="privacy">
-            {copy.retryNotice}
-            {catalog &&
-              ` · ${catalog.ranking} · ${copy.refreshed}: ${new Date(catalog.fetched_at * 1000).toLocaleString()}`}
-          </p>
+          <section
+            id="composer-editor"
+            hidden={folded}
+            className="preview-panel compact-preview"
+          >
+            {editing && (
+              <div className="editing-notice">
+                <span>{copy.editPrompt}</span>
+                <button
+                  type="button"
+                  className="plain-button"
+                  disabled={busy}
+                  onClick={cancelEdit}
+                >
+                  {copy.cancelEdit}
+                </button>
+              </div>
+            )}
+            <AttachmentPicker
+              compact
+              items={files}
+              onChange={setFiles}
+              label={copy.attachChat}
+              disabled={busy || !!editing}
+              onFailure={failed}
+              onBusyChange={setUploading}
+              options={
+                <>
+                  {mobile && (
+                    <label className="collapse-preference">
+                      <input
+                        type="checkbox"
+                        checked={collapseAfterSend}
+                        onChange={(event) => {
+                          setCollapseAfterSend(event.target.checked);
+                          try {
+                            localStorage.setItem(
+                              collapsePreferenceKey,
+                              String(event.target.checked),
+                            );
+                          } catch {
+                            /* Preference storage is optional. */
+                          }
+                        }}
+                      />
+                      {copy.collapseAfterSend}
+                    </label>
+                  )}
+                  {editing && (
+                    <AttachmentPreview items={editing.run.attachments ?? []} />
+                  )}
+                  <div className="model-preferences">
+                    {" "}
+                    <button
+                      className="plain-button"
+                      aria-pressed={favorites.includes(modelId)}
+                      onClick={() => void favorite()}
+                      disabled={!selected}
+                    >
+                      {copy.favorite}
+                    </button>
+                    <button
+                      className="plain-button"
+                      onClick={() => {
+                        void chatApi
+                          .refreshCatalog()
+                          .then(setCatalog)
+                          .catch(failed);
+                      }}
+                    >
+                      {copy.refreshModels}
+                    </button>
+                  </div>
+                  <div className="advanced-grid">
+                    <label>
+                      {copy.systemPrompt}
+                      <textarea
+                        value={
+                          editing &&
+                          typeof editing.run.settings.system_prompt === "string"
+                            ? editing.run.settings.system_prompt
+                            : systemPrompt
+                        }
+                        disabled={!!editing}
+                        maxLength={12000}
+                        rows={2}
+                        onChange={(event) =>
+                          setSystemPrompt(event.target.value)
+                        }
+                      />
+                    </label>
+                    {selected?.supported_parameters.includes("max_tokens") && (
+                      <label>
+                        {copy.maxTokens}
+                        <input
+                          type="number"
+                          min={1}
+                          max={2048}
+                          value={maximum}
+                          onChange={(event) =>
+                            setMaximum(Number(event.target.value))
+                          }
+                        />
+                      </label>
+                    )}
+                    {selected?.supported_parameters.includes("temperature") && (
+                      <label>
+                        {copy.temperature}
+                        <input
+                          type="number"
+                          min={0}
+                          max={2}
+                          step={0.1}
+                          value={temperature}
+                          onChange={(event) =>
+                            setTemperature(event.target.value)
+                          }
+                        />
+                      </label>
+                    )}
+                  </div>
+                  <p>
+                    {selected
+                      ? `${copy.context}: ${selected.context_length.toLocaleString()}`
+                      : copy.loading}
+                  </p>
+                  {selected && (
+                    <p>
+                      {price(selected.pricing.prompt)} /{" "}
+                      {price(selected.pricing.completion)} {copy.priceUnit}
+                    </p>
+                  )}
+                  <p>{copy.retryNotice}</p>
+                  {catalog && (
+                    <p>
+                      {catalog.ranking} · {copy.refreshed}:{" "}
+                      {new Date(catalog.fetched_at * 1000).toLocaleString()}
+                    </p>
+                  )}
+                </>
+              }
+              actions={
+                <>
+                  {mobile && (
+                    <button
+                      type="button"
+                      className="plain-button collapse-toggle"
+                      disabled={uploading}
+                      aria-label={copy.collapseComposer}
+                      aria-controls="composer-editor"
+                      aria-expanded={true}
+                      onClick={hideComposer}
+                    >
+                      ⌄
+                    </button>
+                  )}
+                  {active ? (
+                    <button
+                      type="button"
+                      aria-label={copy.stop}
+                      onClick={() => void stop()}
+                    >
+                      {copy.stopShort}
+                    </button>
+                  ) : (
+                    <button
+                      form="chat-message-form"
+                      type="submit"
+                      aria-label={copy.send}
+                      disabled={
+                        busy ||
+                        uploading ||
+                        incompatible ||
+                        !draft.trim() ||
+                        !selected
+                      }
+                    >
+                      {busy ? copy.sending : copy.sendShort}
+                    </button>
+                  )}
+                </>
+              }
+            >
+              <form
+                id="chat-message-form"
+                onSubmit={(event) => void submit(event)}
+              >
+                <label className="sr-only" htmlFor="message">
+                  {copy.message}
+                </label>
+                <textarea
+                  id="message"
+                  rows={1}
+                  ref={messageRef}
+                  maxLength={24000}
+                  placeholder={copy.messagePlaceholder}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !event.shiftKey &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault();
+                      void submit();
+                    }
+                  }}
+                />
+              </form>
+            </AttachmentPicker>
+          </section>
         </div>
         {catalog && (
           <ComparisonPanel
@@ -722,12 +938,16 @@ export default function Workspace({
             conversation={conversation}
             replay={compareReplay}
             clearReplay={() => setCompareReplay(null)}
-            onConversation={setConversation}
+            onConversation={(saved) => {
+              if (saved.id !== conversation?.id) cancelEdit();
+              setConversation(saved);
+            }}
             expired={expired}
             onUsageChange={() => {
               void refreshUsage().catch(failed);
             }}
             onContinue={(saved) => {
+              cancelEdit();
               focused.current = saved.id;
               setConversation(saved);
               setAnswers(saved.runs.filter((run) => !run.comparison_id));

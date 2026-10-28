@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import App from "../src/App";
@@ -45,7 +45,12 @@ function mockRequests(
         return reply(ownerSession);
       if (url.endsWith("/auth/login")) return reply(configuration);
       if (url.endsWith("/auth/session"))
-        return signedIn ? reply(ownerSession) : reply({}, 401);
+        return signedIn
+          ? reply({
+              ...ownerSession,
+              provider_mode: providerBudget ? "openrouter" : "mock",
+            })
+          : reply({}, 401);
       if (url.endsWith("/attachments/limits"))
         return reply({
           files: 5,
@@ -210,4 +215,262 @@ test("switching modes preserves independent drafts without dispatch", async () =
         (String(url).endsWith("/runs") || String(url).endsWith("/comparisons")),
     ),
   ).toBe(false);
+});
+
+function mobileViewport() {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((media: string) => ({
+      matches: true,
+      media,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
+}
+async function enableCollapse() {
+  await userEvent.click(screen.getByText("Options", { exact: true }));
+  await userEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Collapse after sending on this device",
+    }),
+  );
+  await userEvent.click(screen.getByText("Options", { exact: true }));
+}
+
+test("privacy remains available when usage fails and the compact controls keep semantic labels", async () => {
+  const fetcher = mockRequests(true, false, true);
+  const original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation((input, options) =>
+    String(input).endsWith("/usage")
+      ? Promise.resolve(reply({ error: { message: "Usage unavailable" } }, 503))
+      : original(input, options),
+  );
+  render(<App />);
+  const privacy = await screen.findByRole("region", { name: "Privacy" });
+  expect(privacy).toHaveTextContent("Submitted content is sent to OpenRouter");
+  expect(
+    screen.getAllByText(/Provider retention policies may vary/),
+  ).toHaveLength(1);
+  expect(
+    await screen.findByLabelText("Attach files to chat"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Send message" }),
+  ).toHaveTextContent("Send");
+});
+
+test("Options dismisses when the reader returns to the prompt without submitting", async () => {
+  const fetcher = mockRequests(true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  const summary = screen.getByText("Options", { exact: true });
+  await userEvent.click(summary);
+  expect(summary.closest("details")).toHaveAttribute("open");
+  await userEvent.click(input);
+  expect(summary.closest("details")).not.toHaveAttribute("open");
+  expect(
+    fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
+  ).toBe(false);
+});
+
+test.each(["button", "Enter"])(
+  "mobile preference folds only an accepted %s submission and stores no credentials",
+  async (method) => {
+    mobileViewport();
+    mockRequests(true);
+    render(<App />);
+    const input = await screen.findByLabelText("Message", { exact: true });
+    await enableCollapse();
+    await userEvent.type(input, "Hello");
+    if (method === "Enter") await userEvent.keyboard("{Enter}");
+    else
+      await userEvent.click(
+        screen.getByRole("button", { name: "Send message" }),
+      );
+    const write = await screen.findByRole("button", {
+      name: "Write a message",
+    });
+    expect(input).not.toBeVisible();
+    expect(localStorage.getItem("lab-chatbot.mobile-collapse")).toBe("true");
+    expect(Object.keys(localStorage)).toEqual(["lab-chatbot.mobile-collapse"]);
+    expect(sessionStorage.length).toBe(0);
+    await userEvent.click(write);
+    expect(input).toBeVisible();
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("");
+  },
+);
+
+test("submission failure keeps the mobile draft visible and retries its original idempotency key", async () => {
+  mobileViewport();
+  const fetcher = mockRequests(true, true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await enableCollapse();
+  await userEvent.type(input, "Keep this draft");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Synthetic failure",
+  );
+  expect(input).toBeVisible();
+  expect(input).toHaveValue("Keep this draft");
+  expect(
+    screen.queryByRole("button", { name: "Write a message" }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  const posts = fetcher.mock.calls.filter(([url]) =>
+    String(url).endsWith("/runs"),
+  );
+  expect(JSON.parse(posts[0][1]?.body as string).idempotency_key).toBe(
+    JSON.parse(posts[1][1]?.body as string).idempotency_key,
+  );
+});
+
+test("collapsed streaming retains cancellation and editing restores the unrelated unsent draft", async () => {
+  mobileViewport();
+  vi.stubGlobal(
+    "EventSource",
+    class {
+      addEventListener() {}
+      close() {}
+    },
+  );
+  const fetcher = mockRequests(true);
+  const original = fetcher.getMockImplementation()!;
+  const run = {
+    id: "live-run",
+    conversation_id: "synthetic-conversation",
+    turn: 1,
+    model_id: model.id,
+    model_name: model.name,
+    prompt: "Hello",
+    output: "Partial reply",
+    status: "running",
+    provider: "Mock",
+    accounting_state: "reserved",
+    actual_microusd: null,
+    reserved_microusd: 100,
+    settings: {},
+    attachments: [],
+  };
+  fetcher.mockImplementation((input, options) => {
+    const path = String(input);
+    if (path.endsWith("/runs")) return Promise.resolve(reply(run));
+    if (path.endsWith("/live-run/cancel"))
+      return Promise.resolve(reply({ ...run, status: "cancelled" }));
+    return original(input, options);
+  });
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await enableCollapse();
+  await userEvent.type(input, "Hello");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await screen.findByRole("button", { name: "Write a message" });
+  const stop = screen.getByRole("button", { name: "Stop generation" });
+  expect(stop).toBeVisible();
+  await userEvent.click(stop);
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Stop generation" }),
+    ).not.toBeInTheDocument(),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Write a message" }),
+  );
+  await userEvent.type(input, "Unsent follow-up");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Edit as a new run" }),
+  );
+  expect(input).toHaveValue("Hello");
+  expect(screen.getByLabelText("Attach files to chat")).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel edit" }));
+  expect(input).toHaveValue("Unsent follow-up");
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).endsWith("/runs")),
+  ).toHaveLength(1);
+});
+
+test("saved mobile folding preference never hides the desktop composer", async () => {
+  localStorage.setItem("lab-chatbot.mobile-collapse", "true");
+  mockRequests(true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await userEvent.type(input, "Hello");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(input).toHaveValue(""));
+  expect(input).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Write a message" }),
+  ).not.toBeInTheDocument();
+});
+
+test("editing uses the saved input fork and restores the prior draft after acceptance", async () => {
+  mobileViewport();
+  const fetcher = mockRequests(true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await enableCollapse();
+  await userEvent.type(input, "Hello");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Write a message" }),
+  );
+  await userEvent.type(input, "Unsent follow-up");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Edit as a new run" }),
+  );
+  await userEvent.clear(input);
+  await userEvent.keyboard("{Enter}");
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).endsWith("/runs")),
+  ).toHaveLength(1);
+  await userEvent.type(input, "Edited hello");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Continue draft" }),
+  );
+  expect(input).toHaveValue("Unsent follow-up");
+  const posts = fetcher.mock.calls.filter(([url]) =>
+    String(url).endsWith("/runs"),
+  );
+  expect(posts).toHaveLength(2);
+  expect(JSON.parse(posts[1][1]?.body as string)).toMatchObject({
+    retry_of: "synthetic-run",
+    prompt: "Edited hello",
+    attachment_ids: [],
+  });
+});
+
+test("a draft changed while awaiting acknowledgement is neither cleared nor folded", async () => {
+  mobileViewport();
+  const fetcher = mockRequests(true),
+    original = fetcher.getMockImplementation()!;
+  let release: (() => void) | undefined;
+  fetcher.mockImplementation((input, options) => {
+    const response = original(input, options);
+    return String(input).endsWith("/runs")
+      ? new Promise((resolve) => {
+          release = () => resolve(response);
+        })
+      : response;
+  });
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await enableCollapse();
+  await userEvent.type(input, "Hello");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(release).toBeTypeOf("function"));
+  await userEvent.type(input, " next draft");
+  release!();
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Send message" }),
+    ).toHaveTextContent("Send"),
+  );
+  expect(input).toBeVisible();
+  expect(input).toHaveValue("Hello next draft");
+  expect(
+    screen.queryByRole("button", { name: "Write a message" }),
+  ).not.toBeInTheDocument();
 });

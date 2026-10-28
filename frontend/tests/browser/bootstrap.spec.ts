@@ -10,7 +10,7 @@ test("authenticated streaming chat, saved history, model repeat and logout", asy
     .fill("synthetic-browser-passphrase");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByLabel("Model", { exact: true })).toHaveValue(
-    "mock/steady",
+    "Local steady",
   );
   await page.getByLabel("Message", { exact: true }).fill(prompt);
   await page.getByRole("button", { name: "Send message", exact: true }).click();
@@ -34,7 +34,10 @@ test("authenticated streaming chat, saved history, model repeat and logout", asy
     path: `../artifacts/m2-${info.project.name}.png`,
     fullPage: true,
   });
-  await page.getByLabel("Model", { exact: true }).selectOption("mock/clear");
+  await page
+    .getByRole("combobox", { name: "Model", exact: true })
+    .fill("clear");
+  await page.getByRole("option", { name: /Local clear/ }).click();
   await page
     .getByRole("button", { name: "Repeat with selected model" })
     .click();

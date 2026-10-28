@@ -7,12 +7,27 @@ export default defineConfig({
   testDir: "./tests/browser",
   use: { baseURL: `http://127.0.0.1:${uiPort}`, trace: "retain-on-failure" },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "desktop",
+      testIgnore: "**/mobile-ux.spec.ts",
+      use: { ...devices["Desktop Chrome"] },
+    },
     {
       name: "mobile",
+      testIgnore: "**/mobile-ux.spec.ts",
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 360, height: 740 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: "pixel-10",
+      testMatch: "**/mobile-ux.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 412, height: 924 },
         isMobile: true,
         hasTouch: true,
       },

@@ -284,17 +284,19 @@ def test_sse_revalidates_expiry_without_cancelling_provider(
             self.calls.append(payload)
             yield Chunk(text="partial", generation_id="synthetic-id")
             await asyncio.sleep(0.25)
-            now[0] += timedelta(seconds=2)
+            now[0] += timedelta(seconds=61)
             await asyncio.sleep(30)
             yield Chunk(text="late")
 
     provider = ExpiringProvider()
     app = create_app(
-        settings_factory(session_absolute_seconds=1), clock=lambda: now[0], chat_provider=provider
+        settings_factory(session_absolute_seconds=60), clock=lambda: now[0], chat_provider=provider
     )
     with TestClient(app) as client:
         headers = signin(client)
-        result = start(client, headers, new_conversation(client, headers)).json()
+        started = start(client, headers, new_conversation(client, headers))
+        assert started.status_code == 202, started.text
+        result = started.json()
         response = client.get(f"/api/runs/{result['id']}/events")
         assert "event: session.expired" in response.text
         assert '"output": "partiallate"' not in response.text

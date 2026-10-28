@@ -4,6 +4,8 @@ Only pending work belongs here. Each milestone starts after the preceding milest
 
 The owner authorized the first staged deployment from integrated main, ahead of the remaining application milestones. Version 1 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
 
+The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
+
 ## External verification prerequisites
 
 - [ ] Verify remaining live vision/document/comparison/video flows within the shared provider key budget. Acceptance: sanitized real status/cost evidence and refreshed provider remainder, including usage outside this application.
@@ -23,7 +25,7 @@ The owner authorized the first staged deployment from integrated main, ahead of 
 - [ ] Add storage/rate/concurrency limits, sanitized request IDs and local readiness. Acceptance: pressure and bounded queue behavior are tested.
 - [ ] Exercise encrypted backup and isolated restore with representative real application history/media during a reviewed maintenance window. Synthetic SQLite/file recovery is covered; production data must not be replaced automatically.
 - [ ] Finish themes, focus, keyboard, copy/export, responsive composer and recovery. Acceptance: inspect desktop/360 px screenshots and full browser suite.
-- [ ] Prioritize Chrome on Google Pixel 10 Pro for mobile validation. Acceptance: keep message input and Send reachable with the real Android keyboard open, avoid reduced-height internal-scroll dependence, check portrait/landscape and enlarged text, and record physical-device evidence separately from viewport emulation.
+- [ ] Validate the new compact/folded composer on a physical Google Pixel 10 Pro in Chrome. Acceptance: real Android keyboard opening/dismissal, Send/Stop reachability, recovered drafts/attachments, portrait/landscape and enlarged text are checked with long answers. Browser emulation at 412 by 924, reduced height and landscape has passed; record physical-device evidence separately before calling keyboard behavior verified.
 - [ ] Run full checks and actual container verification. Acceptance: exact source fingerprint and real results recorded with external limitations explicit.
 - [ ] Integrate M6 with CI, PR, remote merge and branch retention evidence.
 
