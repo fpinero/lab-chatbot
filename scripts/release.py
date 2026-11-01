@@ -412,9 +412,13 @@ def verify_remote(config, saved):
     if (
         platform != config.platform
         or labels.get("com.labchatbot.source-fingerprint") != saved["fingerprint"]
+        or (
+            "image_version" in saved
+            and labels.get("org.opencontainers.image.version") != saved["image_version"]
+        )
     ):
         raise ReleaseError(
-            "Registry image configuration does not match the recorded source and architecture."
+            "Registry image configuration does not match the recorded source, architecture or version."
         )
 
 
@@ -557,6 +561,8 @@ def publish(config, plan, lock):
             f"SOURCE_REVISION={revision}",
             "--build-arg",
             f"SOURCE_FINGERPRINT={fp}",
+            "--build-arg",
+            f"IMAGE_VERSION={tag}",
             ".",
         ],
         timeout=1800,
@@ -571,9 +577,13 @@ def publish(config, plan, lock):
         .get("Labels", {})
         .get("com.labchatbot.source-fingerprint")
         != fp
+        or inspected.get("Config", {})
+        .get("Labels", {})
+        .get("org.opencontainers.image.version")
+        != tag
     ):
         raise ReleaseError(
-            "The local image changed or has an unexpected architecture/source label."
+            "The local image changed or has an unexpected architecture/source/version label."
         )
     if fingerprint() != fp:
         raise ReleaseError("Source changed during image verification.")
@@ -590,6 +600,7 @@ def publish(config, plan, lock):
         raise ReleaseError("Published image cannot be verified in the registry.")
     saved = {
         "tag": tag,
+        "image_version": tag,
         "image": image,
         "digest": descriptor["digest"],
         "fingerprint": fp,

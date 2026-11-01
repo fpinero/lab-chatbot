@@ -1187,6 +1187,8 @@ export interface components {
     };
     /** SessionInfo */
     SessionInfo: {
+      /** Image Version */
+      image_version: string | null;
       /** Owner Id */
       owner_id: string;
       /** Csrf Token */

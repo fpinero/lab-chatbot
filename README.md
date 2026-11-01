@@ -101,6 +101,8 @@ Each new request persists an immutable input snapshot and an idempotency key bef
 
 Cancellation preserves partial text and may not stop billing. Missing usage, interrupted requests and uncertain outcomes keep reservations. An authenticated billing check can retrieve known generation metadata without creating another generation. Usage records remain after conversation deletion, including an idempotency tombstone so replaying a deleted request cannot spend again.
 
+The bottom of desktop/mobile navigation shows the running image's canonical tag, for example labchatbot v9. The tag is packaged in the image and returned by the authenticated session on sign-in/reload. A source checkout shows labchatbot local; missing metadata in production is explicitly unavailable. No provider request is needed to display the version.
+
 Copy response, Copy prompt and Copy code show Copied for two seconds after a successful clipboard write, with an accessible announcement and stable button width. A failed write shows a local manual-copy/retry message. Response and prompt copying preserve the original text/Markdown; code copying preserves the displayed code. Copying does not submit a generation or replace a draft.
 
 The main chat prompt uses an exterior focus indicator instead of drawing a frame over the text. Long prompts grow to the screen-specific limit and then scroll internally; Attach, Options and Send stay available. Keyboard focus indicators remain on other controls.

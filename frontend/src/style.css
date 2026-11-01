@@ -1485,3 +1485,14 @@ button:disabled {
 .attachment-remove svg {
   flex-shrink: 0;
 }
+
+.sidebar-version {
+  flex-shrink: 0;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
