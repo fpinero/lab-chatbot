@@ -42,3 +42,7 @@
 ## 2026-11-01: Separate content identity from lazy readers
 
 - A new callback reference does not imply changed displayed content. Clipboard feedback for a DOM-backed code block should track the code text independently of its reader closure, so unrelated parent rerenders preserve the timer while real code changes invalidate stale success. Verify this with an actual draft edit in a browser.
+
+## 2026-11-01: Distinguish continued use from lost history
+
+- A strict snapshot comparison can flag legitimate conversation head/timestamp changes when an owner resumes using the application after backup. Preserve the actual differences in evidence and verify original immutable fields/files, ownership, new-turn ordering, saved context and the corresponding usage entry. Do not erase differences, restore production data or repeat a healthy rollout merely to make mutable conversation metadata equal an earlier snapshot.
