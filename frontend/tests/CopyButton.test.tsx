@@ -138,3 +138,35 @@ test("each copy control owns its feedback and reads lazy content at click time",
     "Copied",
   );
 });
+
+test("unchanged lazy content retains its timer across rerenders but changed content resets it", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("navigator", {
+    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+  });
+  const { rerender } = render(
+    <CopyButton {...props} text={() => "code"} contentKey="code" />,
+  );
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: props.label })),
+  );
+  await act(async () => vi.advanceTimersByTime(500));
+  rerender(<CopyButton {...props} text={() => "code"} contentKey="code" />);
+  expect(screen.getByRole("button", { name: props.label })).toHaveTextContent(
+    "Copied",
+  );
+  await act(async () => vi.advanceTimersByTime(1499));
+  expect(screen.getByRole("button", { name: props.label })).toHaveTextContent(
+    "Copied",
+  );
+  await act(async () => vi.advanceTimersByTime(1));
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: props.label })),
+  );
+  rerender(
+    <CopyButton {...props} text={() => "new code"} contentKey="new code" />,
+  );
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(vi.getTimerCount()).toBe(0);
+});

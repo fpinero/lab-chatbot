@@ -1471,3 +1471,17 @@ button:disabled {
     box-shadow: 0 0 0 1px #91bba3;
   }
 }
+
+.attachment-item .attachment-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 8px;
+}
+.attachment-remove svg {
+  flex-shrink: 0;
+}

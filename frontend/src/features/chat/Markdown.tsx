@@ -1,15 +1,34 @@
-import { useRef, type PropsWithChildren } from "react";
+import {
+  Children,
+  isValidElement,
+  useRef,
+  type PropsWithChildren,
+  type ReactNode,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { copy } from "../../lib/copy";
 import CopyButton from "./CopyButton";
 
+function contentText(children: ReactNode): string {
+  return Children.toArray(children)
+    .map((child) => {
+      if (typeof child === "string" || typeof child === "number")
+        return String(child);
+      return isValidElement<{ children?: ReactNode }>(child)
+        ? contentText(child.props.children)
+        : "";
+    })
+    .join("");
+}
+
 function CodeBlock({ children }: PropsWithChildren) {
   const ref = useRef<HTMLPreElement>(null);
   return (
     <div className="code-block">
       <CopyButton
+        contentKey={contentText(children)}
         text={() => ref.current?.innerText ?? ""}
         label={copy.copyCode}
         successMessage={copy.codeCopied}

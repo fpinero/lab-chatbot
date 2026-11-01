@@ -10,6 +10,7 @@ export default function CopyButton({
   failureMessage,
   className = "plain-button",
   children,
+  contentKey,
 }: {
   text: CopySource;
   label: string;
@@ -17,12 +18,14 @@ export default function CopyButton({
   failureMessage: string;
   className?: string;
   children?: ReactNode;
+  contentKey?: string;
 }) {
+  const source = contentKey ?? text;
   const [result, setResult] = useState<{
     source: CopySource;
     status: "copied" | "failed";
   } | null>(null);
-  const status = result?.source === text ? result.status : null;
+  const status = result?.source === source ? result.status : null;
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const version = useRef(0);
   const pending = useRef(false);
@@ -33,7 +36,7 @@ export default function CopyButton({
       pending.current = false;
       clearTimeout(timer.current);
     };
-  }, [text]);
+  }, [source]);
 
   async function performCopy() {
     if (pending.current) return;
@@ -46,13 +49,12 @@ export default function CopyButton({
         typeof text === "function" ? text() : text,
       );
       if (current !== version.current) return;
-      setResult({ source: text, status: "copied" });
+      setResult({ source, status: "copied" });
       timer.current = setTimeout(() => {
         if (current === version.current) setResult(null);
       }, 2000);
     } catch {
-      if (current === version.current)
-        setResult({ source: text, status: "failed" });
+      if (current === version.current) setResult({ source, status: "failed" });
     } finally {
       if (current === version.current) pending.current = false;
     }
