@@ -4,6 +4,7 @@ import { copy } from "../../lib/copy";
 import { useMobile } from "../../lib/useMobile";
 import { AttachmentPreview } from "../attachments/AttachmentPicker";
 import Markdown from "./Markdown";
+import CopyButton from "./CopyButton";
 
 export const usd = (micro: number) => `$${(micro / 1000000).toFixed(6)}`;
 export default function RunCard({
@@ -106,16 +107,12 @@ export default function RunCard({
         </p>
       )}
       <div className="answer-actions">
-        <button
-          className="plain-button"
-          onClick={() => {
-            void navigator.clipboard
-              .writeText(run.output)
-              .catch(() => undefined);
-          }}
-        >
-          {copy.copyResponse}
-        </button>
+        <CopyButton
+          text={run.output}
+          label={copy.copyResponse}
+          successMessage={copy.responseCopied}
+          failureMessage={copy.responseCopyFailed}
+        />
         {actions}
       </div>
     </article>

@@ -33,7 +33,7 @@ export default defineConfig({
     },
     {
       name: "pixel-10",
-      testMatch: "**/mobile-ux.spec.ts",
+      testMatch: ["**/mobile-ux.spec.ts", "**/ui-polish.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 412, height: 924 },
