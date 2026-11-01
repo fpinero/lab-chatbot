@@ -2,17 +2,15 @@
 
 Only pending work belongs here. Each milestone starts after the preceding milestone is verified and integrated remotely. Keep every milestone branch for at least seven days after merge, with no automatic cleanup.
 
-The owner authorized staged deployment from integrated main, ahead of the remaining application milestones. Version 9 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
+The owner authorized staged deployment from integrated main, ahead of the remaining application milestones. Version 10 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
 
 The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
 
-## Mobile Enter behavior
-
-- [ ] Integrate through verified CI/PR and deploy the next live-derived image tag with encrypted recovery and data-preservation checks.
-
 ## External verification prerequisites
 
-- [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 9; physical platform/browser checks remain separate.
+- [ ] Confirm multiline Enter and the return-key label on the owner's physical Pixel 10 Pro after reloading version 10. Native Chromium key events are verified in touch emulation; the actual virtual keyboard remains a device check.
+
+- [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 10; physical platform/browser checks remain separate.
 
 
 
