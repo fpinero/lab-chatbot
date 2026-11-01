@@ -8,7 +8,6 @@ The owner prioritized mobile reading space and model search ahead of the remaini
 
 ## UI polish campaign
 
-- [ ] UI2: Remove the inset prompt focus frame, retain clear keyboard focus on its container and verify long-text growth/scroll, toolbar reachability and Options placement on desktop and mobile.
 - [ ] UI3: Put accessible 44-pixel remove buttons inside draft attachment cards in Chat, Compare and Image; preserve history, other files, draft text and pending-upload guards.
 - [ ] UI4: Integrate each verified milestone through its own PR, verify the exact combined main/container, deploy with encrypted recovery evidence and confirm public assets and original data preservation.
 

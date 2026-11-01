@@ -1450,3 +1450,24 @@ button:disabled {
 .copy-label > span {
   grid-area: 1 / 1;
 }
+
+.chat-composer .compact-picker #message:focus-visible {
+  outline: none;
+  border-radius: 0;
+}
+.chat-composer .compact-picker #message {
+  overflow-y: auto;
+}
+#chat-message-form {
+  padding-top: 6px;
+}
+.compact-preview:focus-within {
+  border-color: #34765b;
+  box-shadow: 0 0 0 1px #34765b;
+}
+@media (prefers-color-scheme: dark) {
+  .compact-preview:focus-within {
+    border-color: #91bba3;
+    box-shadow: 0 0 0 1px #91bba3;
+  }
+}
