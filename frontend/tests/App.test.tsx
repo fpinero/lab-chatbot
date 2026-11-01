@@ -1,4 +1,11 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import App from "../src/App";
@@ -219,11 +226,11 @@ test("switching modes preserves independent drafts without dispatch", async () =
   ).toBe(false);
 });
 
-function mobileViewport() {
+function mobileViewport(desktopInteraction = false) {
   vi.stubGlobal(
     "matchMedia",
     vi.fn((media: string) => ({
-      matches: true,
+      matches: media === "(max-width: 760px)" || desktopInteraction,
       media,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -239,6 +246,116 @@ async function enableCollapse() {
   );
   await userEvent.click(screen.getByText("Options", { exact: true }));
 }
+
+test("touch Enter preserves paragraphs and sends their exact text only with Send", async () => {
+  mobileViewport();
+  const fetcher = mockRequests(true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  expect(input).toHaveAttribute("enterkeyhint", "enter");
+  expect(input).toHaveAccessibleDescription(
+    "Enter for a new line. Use Send to send your message.",
+  );
+  await userEvent.type(input, "First paragraph{Enter}{Enter}Second paragraph");
+  expect(input).toHaveValue("First paragraph\n\nSecond paragraph");
+  expect(
+    fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
+  ).toBe(false);
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  const posts = fetcher.mock.calls.filter(([url]) =>
+    String(url).endsWith("/runs"),
+  );
+  expect(posts).toHaveLength(1);
+  expect(JSON.parse(posts[0][1]?.body as string).prompt).toBe(
+    "First paragraph\n\nSecond paragraph",
+  );
+});
+
+test("desktop shortcuts respect Shift and IME confirmation before Enter sends", async () => {
+  mobileViewport(true);
+  const fetcher = mockRequests(true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  expect(input).toHaveAttribute("enterkeyhint", "send");
+  expect(input).toHaveAccessibleDescription(
+    "Enter to send. Shift+Enter for a new line.",
+  );
+  await userEvent.type(input, "First{Shift>}{Enter}{/Shift}Second");
+  expect(input).toHaveValue("First\nSecond");
+  fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+  fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+  expect(
+    fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
+  ).toBe(false);
+  await userEvent.keyboard("{Enter}");
+  expect(
+    fetcher.mock.calls.filter(([url]) => String(url).endsWith("/runs")),
+  ).toHaveLength(1);
+});
+
+test("interaction changes preserve the draft and update keyboard behavior with cleanup", async () => {
+  const listeners = new Set<() => void>();
+  const query = {
+    matches: true,
+    addEventListener: vi.fn((_type: string, listener: () => void) =>
+      listeners.add(listener),
+    ),
+    removeEventListener: vi.fn((_type: string, listener: () => void) =>
+      listeners.delete(listener),
+    ),
+  };
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((media: string) =>
+      media.includes("pointer")
+        ? query
+        : {
+            matches: false,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+          },
+    ),
+  );
+  const fetcher = mockRequests(true);
+  const view = render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await userEvent.type(input, "Keep this draft");
+  act(() => {
+    query.matches = false;
+    listeners.forEach((listener) => listener());
+  });
+  expect(input).toHaveAttribute("enterkeyhint", "enter");
+  await userEvent.keyboard("{Enter}");
+  expect(input).toHaveValue("Keep this draft\n");
+  expect(
+    fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
+  ).toBe(false);
+  act(() => {
+    query.matches = true;
+    listeners.forEach((listener) => listener());
+  });
+  expect(input).toHaveAttribute("enterkeyhint", "send");
+  expect(input).toHaveValue("Keep this draft\n");
+  view.unmount();
+  expect(query.removeEventListener).toHaveBeenCalledWith(
+    "change",
+    expect.any(Function),
+  );
+  expect(listeners.size).toBe(0);
+});
+
+test("unknown interaction capabilities safely leave Enter as a new line", async () => {
+  vi.stubGlobal("matchMedia", undefined);
+  const fetcher = mockRequests(true);
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await userEvent.type(input, "Safe default{Enter}");
+  expect(input).toHaveValue("Safe default\n");
+  expect(input).toHaveAttribute("enterkeyhint", "enter");
+  expect(
+    fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
+  ).toBe(false);
+});
 
 test("privacy remains available when usage fails and the compact controls keep semantic labels", async () => {
   const fetcher = mockRequests(true, false, true);
@@ -277,9 +394,9 @@ test("Options dismisses when the reader returns to the prompt without submitting
 });
 
 test.each(["button", "Enter"])(
-  "mobile preference folds only an accepted %s submission and stores no credentials",
+  "compact layout folds only an accepted %s submission and stores no credentials",
   async (method) => {
-    mobileViewport();
+    mobileViewport(method === "Enter");
     mockRequests(true);
     render(<App />);
     const input = await screen.findByLabelText("Message", { exact: true });
@@ -427,6 +544,8 @@ test("editing uses the saved input fork and restores the prior draft after accep
   expect(
     fetcher.mock.calls.filter(([url]) => String(url).endsWith("/runs")),
   ).toHaveLength(1);
+  expect(input).toHaveValue("\n");
+  await userEvent.clear(input);
   await userEvent.type(input, "Edited hello");
   await userEvent.click(screen.getByRole("button", { name: "Send message" }));
   await userEvent.click(

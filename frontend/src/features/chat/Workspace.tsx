@@ -20,6 +20,7 @@ import {
 } from "../../lib/api";
 import { copy } from "../../lib/copy";
 import { useMobile } from "../../lib/useMobile";
+import { useEnterToSend } from "../../lib/useEnterToSend";
 import RunCard from "./RunCard";
 import SavedPrompt from "./SavedPrompt";
 import ModelPicker from "./ModelPicker";
@@ -92,6 +93,7 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const mobile = useMobile();
+  const enterToSend = useEnterToSend();
   const [collapseAfterSend, setCollapseAfterSend] = useState(
     savedCollapsePreference,
   );
@@ -1014,19 +1016,27 @@ export default function Workspace({
                   ref={messageRef}
                   maxLength={24000}
                   placeholder={copy.messagePlaceholder}
+                  enterKeyHint={enterToSend ? "send" : "enter"}
+                  aria-describedby="message-keyboard-help"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
+                    // Some IMEs report the confirming Enter as keyCode 229.
                     if (
                       event.key === "Enter" &&
+                      enterToSend &&
                       !event.shiftKey &&
-                      !event.nativeEvent.isComposing
+                      !event.nativeEvent.isComposing &&
+                      event.nativeEvent.keyCode !== 229
                     ) {
                       event.preventDefault();
                       void submit();
                     }
                   }}
                 />
+                <p id="message-keyboard-help" className="sr-only">
+                  {enterToSend ? copy.desktopEnterHelp : copy.touchEnterHelp}
+                </p>
               </form>
             </AttachmentPicker>
           </section>

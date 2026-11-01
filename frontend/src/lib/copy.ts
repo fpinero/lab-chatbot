@@ -145,6 +145,8 @@ export const copy = {
   approximate: "Approximate upper estimate",
   savedInput: "New run from saved input",
   newConversation: "New conversation",
+  desktopEnterHelp: "Enter to send. Shift+Enter for a new line.",
+  touchEnterHelp: "Enter for a new line. Use Send to send your message.",
   search: "Search history",
   model: "Model",
   refreshModels: "Refresh models",

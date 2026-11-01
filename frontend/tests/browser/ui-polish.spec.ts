@@ -9,6 +9,66 @@ async function signIn(page: Page) {
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 
+test("prompt Enter follows input capabilities across narrow desktop and wide touch layouts", async ({
+  page,
+}, info) => {
+  const touch = info.project.use.hasTouch === true;
+  const posts: string[] = [];
+  await page.route("**/api/runs", async (route) => {
+    posts.push(route.request().postData()!);
+    await route.fulfill({
+      status: 503,
+      json: { error: { message: "Synthetic keyboard submission" } },
+    });
+  });
+  await signIn(page);
+  const input = page.getByLabel("Message", { exact: true });
+  const send = page.getByRole("button", { name: "Send message", exact: true });
+  expect(
+    await page.evaluate(
+      () => matchMedia("(hover: hover) and (pointer: fine)").matches,
+    ),
+  ).toBe(!touch);
+  await expect(input).toHaveAttribute("enterkeyhint", touch ? "enter" : "send");
+  await input.fill("First paragraph");
+  await input.press(touch ? "Enter" : "Shift+Enter");
+  await expect(input).toHaveValue("First paragraph\n");
+  expect(posts).toHaveLength(0);
+  await input.pressSequentially("Second paragraph");
+  await input.dispatchEvent("keydown", { key: "Enter", isComposing: true });
+  await input.dispatchEvent("keydown", { key: "Enter", keyCode: 229 });
+  expect(posts).toHaveLength(0);
+  await page.setViewportSize(
+    touch ? { width: 1100, height: 800 } : { width: 412, height: 740 },
+  );
+  await expect(input).toHaveAttribute("enterkeyhint", touch ? "enter" : "send");
+  await expect(send).toBeVisible();
+  await expect(send).toBeEnabled();
+  if (touch) {
+    await input.press("End");
+    await input.press("Enter");
+    await input.press("Enter");
+    await input.press("T");
+    await expect(input).toHaveValue("First paragraph\nSecond paragraph\n\nT");
+    expect(posts).toHaveLength(0);
+    await send.click();
+  } else {
+    await input.press("Enter");
+  }
+  await expect(page.getByRole("alert")).toHaveText(
+    "Synthetic keyboard submission",
+  );
+  expect(posts).toHaveLength(1);
+  const expected = touch
+    ? "First paragraph\nSecond paragraph\n\nT"
+    : "First paragraph\nSecond paragraph";
+  expect(JSON.parse(posts[0]).prompt).toBe(expected);
+  await expect(input).toHaveValue(expected);
+  await page.screenshot({
+    path: `../artifacts/enter-${info.project.name}.png`,
+  });
+});
+
 test("copy feedback confirms exact response/code content, expires and permits retry", async ({
   page,
 }, info) => {
