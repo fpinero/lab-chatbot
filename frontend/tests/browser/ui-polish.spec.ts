@@ -60,6 +60,11 @@ test("copy feedback confirms exact response/code content, expires and permits re
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     codeText,
   );
+  await input.fill("Typing after code copy must keep its confirmation");
+  await expect(
+    code.getByRole("button", { name: "Copy code", exact: true }),
+  ).toHaveText("Copied");
+  await input.fill("Keep this draft while copying");
   await page.evaluate(() =>
     Object.defineProperty(navigator.clipboard, "writeText", {
       configurable: true,
