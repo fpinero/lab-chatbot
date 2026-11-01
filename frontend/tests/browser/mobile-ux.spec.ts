@@ -117,7 +117,7 @@ test("accepted sending folds, keeps Stop, and restores preference/history withou
     "A synthetic streaming sentence for cancellation and recovery. ".repeat(24);
   const input = page.getByLabel("Message", { exact: true });
   await input.fill(prompt);
-  await input.press("Enter");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Write a message" }),
   ).toBeInViewport();
