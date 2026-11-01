@@ -30,3 +30,7 @@
 ## 2026-10-28: Inspect a completed rollout before retrying
 
 - A ready pod and successful Deployment replacement can precede successful public routing. Version 7's first immediate public-root read returned 404, then repeated read-only root/health checks returned 200 with the same deployed image and endpoint. Inspect the deployed receipt, pod, endpoint and public responses before retrying any mutation; do not republish or increment a tag to address a transient health-check failure. The precise cause of this brief 404 was not established.
+
+## 2026-11-01: Measure clipboard feedback layout
+
+- Existing broad button-span rules can change the intrinsic size of a nested status label. Scope spacing for reusable controls and measure the real button before/after success in browser tests; preserving the original label through a CSS pseudo-element avoids extra accessible or textContent labels.

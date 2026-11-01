@@ -180,6 +180,11 @@ export const copy = {
   exportMarkdown: "Export Markdown",
   exportJson: "Export JSON",
   copyResponse: "Copy response",
+  responseCopied: "Response copied to clipboard.",
+  responseCopyFailed:
+    "Could not copy. Select the response text and copy it manually.",
+  codeCopied: "Code copied to clipboard.",
+  codeCopyFailed: "Could not copy. Select the code and copy it manually.",
   copyPrompt: "Copy prompt",
   copied: "Copied",
   promptCopied: "Prompt copied to clipboard.",

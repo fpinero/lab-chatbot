@@ -3,21 +3,19 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { copy } from "../../lib/copy";
+import CopyButton from "./CopyButton";
 
 function CodeBlock({ children }: PropsWithChildren) {
   const ref = useRef<HTMLPreElement>(null);
   return (
     <div className="code-block">
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard
-            .writeText(ref.current?.innerText ?? "")
-            .catch(() => undefined);
-        }}
-      >
-        {copy.copyCode}
-      </button>
+      <CopyButton
+        text={() => ref.current?.innerText ?? ""}
+        label={copy.copyCode}
+        successMessage={copy.codeCopied}
+        failureMessage={copy.codeCopyFailed}
+        className=""
+      />
       <pre ref={ref}>{children}</pre>
     </div>
   );

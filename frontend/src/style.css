@@ -1430,3 +1430,23 @@ button:disabled {
   min-height: 44px;
   flex-shrink: 0;
 }
+
+.copy-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.copy-control span {
+  margin-left: 0;
+}
+.copy-label {
+  display: inline-grid;
+}
+.copy-label::before {
+  content: attr(data-label);
+  visibility: hidden;
+  grid-area: 1 / 1;
+}
+.copy-label > span {
+  grid-area: 1 / 1;
+}
