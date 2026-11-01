@@ -2,17 +2,13 @@
 
 Only pending work belongs here. Each milestone starts after the preceding milestone is verified and integrated remotely. Keep every milestone branch for at least seven days after merge, with no automatic cleanup.
 
-The owner authorized staged deployment from integrated main, ahead of the remaining application milestones. Version 8 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
+The owner authorized staged deployment from integrated main, ahead of the remaining application milestones. Version 9 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
 
 The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
 
-## Image version display
-
-- [ ] Verify version metadata, session responses, release label/receipt consistency, sidebar layout and actual container metadata; integrate and deploy with encrypted recovery and data-preservation checks.
-
 ## External verification prerequisites
 
-- [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 8; physical platform/browser checks remain separate.
+- [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 9; physical platform/browser checks remain separate.
 
 
 
