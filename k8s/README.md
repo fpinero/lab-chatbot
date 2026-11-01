@@ -108,6 +108,8 @@ For this environment, `ORIGIN_TLS_VERIFIED=true` records the explicitly confirme
 
 The supplied Nginx example serves a static site; its fallback/cache locations are not copied into this authenticated application. FastAPI keeps private API, SSE and media responses `no-store`. Confirm that Cloudflare cache rules do not override this. The frontend uses an SPA fallback while unknown `/api` routes remain guarded JSON errors. Test real uploads and SSE through the edge; any scoped timeout/buffering adjustment must affect only this application.
 
+The publisher passes the canonical next tag as the IMAGE_VERSION Docker build argument. The image packages it in a read-only metadata file and the OCI org.opencontainers.image.version label; new receipts record image_version and remote verification checks the label. Authenticated session responses expose this non-secret value for the sidebar footer, without a separately maintained ConfigMap/env variable. Unpublished preparation images default to development. Legacy receipts/images without this metadata remain valid for recovery verification.
+
 ## Staged deployment
 
 Use separate phases for a first deployment and inspect each result before continuing. These phases were exercised for version 1 on 2026-10-27; always plan from the current live Deployment rather than assuming the first tag is still available.

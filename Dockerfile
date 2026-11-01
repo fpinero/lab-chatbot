@@ -18,8 +18,10 @@ RUN uv sync --frozen --no-dev --no-install-project
 FROM python:3.12.15-slim-bookworm AS runtime
 ARG SOURCE_REVISION=unreleased
 ARG SOURCE_FINGERPRINT=unverified
+ARG IMAGE_VERSION=development
 LABEL org.opencontainers.image.source="https://github.com/fpinero/lab-chatbot" \
       org.opencontainers.image.revision=$SOURCE_REVISION \
+      org.opencontainers.image.version=$IMAGE_VERSION \
       com.labchatbot.source-fingerprint=$SOURCE_FINGERPRINT
 ENV PATH="/app/backend/.venv/bin:$PATH" \
     PYTHONPATH=/app/backend \
@@ -34,6 +36,7 @@ COPY backend/app /app/backend/app
 COPY backend/migrations /app/backend/migrations
 COPY --from=frontend /build/dist /app/frontend/dist
 COPY scripts/backup-data.py /app/scripts/backup-data.py
+RUN printf '%s\n' "$IMAGE_VERSION" > /app/backend/app/_image_version.txt
 USER 10001:10001
 EXPOSE 8000
 STOPSIGNAL SIGTERM

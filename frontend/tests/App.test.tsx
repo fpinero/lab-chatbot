@@ -722,3 +722,44 @@ test("an older automatic read cannot overwrite a newer manual balance", async ()
   });
   expect(screen.getByText("Key remaining: $8.300000")).toBeVisible();
 });
+
+test("sidebar reports the authenticated image tag below Privacy and distinguishes local builds", async () => {
+  const fetcher = mockRequests(true),
+    original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation((input, options) =>
+    String(input).endsWith("/auth/session")
+      ? Promise.resolve(reply({ ...ownerSession, image_version: "v1.2.3" }))
+      : original(input, options),
+  );
+  const view = render(<App />);
+  const footer = await screen.findByLabelText("Application version");
+  expect(footer).toHaveTextContent("labchatbot v1.2.3");
+  expect(footer.parentElement?.lastElementChild).toBe(footer);
+  expect(footer.previousElementSibling).toHaveAccessibleName("Privacy");
+  view.unmount();
+  fetcher.mockImplementation(original);
+  render(<App />);
+  expect(await screen.findByLabelText("Application version")).toHaveTextContent(
+    "labchatbot local",
+  );
+});
+
+test("a production session missing image metadata does not claim to be a local build", async () => {
+  const fetcher = mockRequests(true),
+    original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation((input, options) =>
+    String(input).endsWith("/auth/session")
+      ? Promise.resolve(
+          reply({
+            ...ownerSession,
+            environment: "production",
+            image_version: null,
+          }),
+        )
+      : original(input, options),
+  );
+  render(<App />);
+  expect(await screen.findByLabelText("Application version")).toHaveTextContent(
+    "labchatbot version unavailable",
+  );
+});

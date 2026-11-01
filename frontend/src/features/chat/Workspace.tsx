@@ -604,6 +604,16 @@ export default function Workspace({
               : copy.privacy}
           </p>
         </section>
+        <footer
+          className="sidebar-version"
+          aria-label={copy.applicationVersion}
+        >
+          {ownerSession.image_version
+            ? copy.imageVersion(ownerSession.image_version)
+            : ownerSession.environment === "production"
+              ? copy.versionUnavailable
+              : copy.localVersion}
+        </footer>
       </aside>
       <main>
         <header>

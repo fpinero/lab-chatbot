@@ -512,3 +512,72 @@ def test_backup_destination_cannot_alias_the_live_data_directory(tmp_path):
     with pytest.raises(ValueError, match="outside"):
         backup.backup(data, alias / "snapshot.enc", os.urandom(32), True)
     assert not (data / "snapshot.enc").exists()
+
+
+def test_remote_version_label_is_checked_without_breaking_legacy_receipts(config, monkeypatch):
+    saved = {
+        "image": config.repository + ":9",
+        "digest": "sha256:" + "a" * 64,
+        "fingerprint": "verified",
+    }
+    raw = {
+        "os": "linux",
+        "architecture": "arm64",
+        "config": {"Labels": {"com.labchatbot.source-fingerprint": "verified"}},
+    }
+    monkeypatch.setattr(
+        release, "run", lambda *args, **kwargs: SimpleNamespace(stdout=json.dumps(raw))
+    )
+    release.verify_remote(config, saved)
+    saved["image_version"] = "9"
+    with pytest.raises(release.ReleaseError, match="version"):
+        release.verify_remote(config, saved)
+    raw["config"]["Labels"]["org.opencontainers.image.version"] = "8"
+    with pytest.raises(release.ReleaseError, match="version"):
+        release.verify_remote(config, saved)
+    raw["config"]["Labels"]["org.opencontainers.image.version"] = "9"
+    release.verify_remote(config, saved)
+
+
+@pytest.mark.parametrize("embedded", ["9", "8"])
+def test_publication_embeds_and_records_the_production_tag(config, tmp_path, monkeypatch, embedded):
+    calls = []
+    registries = iter([None, None, {"digest": "sha256:" + "b" * 64}])
+    monkeypatch.setattr(release, "registry", lambda image: next(registries))
+    monkeypatch.setattr(release, "fingerprint", lambda: "verified")
+    monkeypatch.setattr(release, "ARTIFACTS", tmp_path)
+    monkeypatch.setattr(release, "ensure_baseline", lambda *args: None)
+    monkeypatch.setattr(release, "verify_remote", lambda *args: None)
+
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[:3] == ["git", "rev-parse", "HEAD"]:
+            return SimpleNamespace(stdout="revision")
+        if args[:3] == ["docker", "image", "inspect"]:
+            return SimpleNamespace(
+                stdout=json.dumps(
+                    {
+                        "Os": "linux",
+                        "Architecture": "arm64",
+                        "Config": {
+                            "Labels": {
+                                "com.labchatbot.source-fingerprint": "verified",
+                                "org.opencontainers.image.version": embedded,
+                            }
+                        },
+                    }
+                )
+            )
+        return SimpleNamespace(stdout="")
+
+    monkeypatch.setattr(release, "run", run)
+    if embedded != "9":
+        with pytest.raises(release.ReleaseError, match="version"):
+            release.publish(config, {"next_tag": "9"}, SimpleNamespace(check=lambda: None))
+        assert not any(args[:2] == ["docker", "push"] for args in calls)
+        return
+    saved = release.publish(config, {"next_tag": "9"}, SimpleNamespace(check=lambda: None))
+    build = next(args for args in calls if args[:3] == ["docker", "buildx", "build"])
+    assert "IMAGE_VERSION=9" in build
+    assert saved["image_version"] == saved["tag"] == "9"
+    assert json.loads(release.receipt_path(config, "9").read_text())["image_version"] == "9"

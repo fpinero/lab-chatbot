@@ -240,6 +240,11 @@ export const copy = {
   throttled: "Too many attempts. Wait five minutes before trying again.",
   expired: "Your session has expired. Sign in again to continue.",
   version: "Your private model workspace",
+  applicationVersion: "Application version",
+  imageVersion: (tag: string) =>
+    `labchatbot ${tag.startsWith("v") ? tag : `v${tag}`}`,
+  localVersion: "labchatbot local",
+  versionUnavailable: "labchatbot version unavailable",
   production: "Private workspace",
   secureNotice: "Your session is protected by a secure server-side cookie.",
   navigation: "Navigation",

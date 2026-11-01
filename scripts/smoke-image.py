@@ -51,10 +51,16 @@ for path in ['/api/auth/session','/api/images/jobs']:
     except urllib.error.HTTPError as error: assert error.code == 401
     else: raise AssertionError('Private route was public')
 assert os.getuid() == 10001
+marker = Path('/app/backend/app/_image_version.txt')
+version = marker.read_text().strip() if marker.is_file() else None
+assert version == (os.environ['EXPECTED_IMAGE_VERSION'] or None)
 for name in ['.env','.env.local','.git','private','docs','IMPLEMENTATION_PLAN.local.md']:
     assert not (Path('/app')/name).exists()
+login = request('/api/auth/login', {'password':'container-only-synthetic-owner-passphrase'})
+assert login.get('image_version') == version
 if os.environ['PROVIDER_MODE'] == 'mock':
-    csrf = request('/api/auth/login', {'password':'container-only-synthetic-owner-passphrase'})['csrf_token']
+    assert request('/api/auth/session').get('image_version') == version
+    csrf = login['csrf_token']
     state = Path('/data/smoke-state.json')
     if not state.exists():
         conversation = request('/api/conversations', {'title':'Disposable smoke check'})
@@ -90,6 +96,10 @@ def main():
     if len(sys.argv) != 2:
         raise SystemExit("Usage: scripts/smoke-image.py IMAGE")
     image = sys.argv[1]
+    image_config = json.loads(docker("image", "inspect", image))[0]
+    expected_version = image_config["Config"]["Labels"].get(
+        "org.opencontainers.image.version", ""
+    )
     identifier = "labchatbot-smoke-" + uuid4().hex
     volume = identifier + "-data"
     names = []
@@ -111,6 +121,7 @@ def main():
                     "AUTH_PASSWORD_HASH": root_hash,
                     "SPEND_CONTROL": "provider",
                     "DATA_DIR": "/data",
+                    "EXPECTED_IMAGE_VERSION": expected_version,
                     "OPENROUTER_API_KEY": "synthetic-unusable-container-key",
                 }
                 environment.write_text(

@@ -311,3 +311,67 @@ test("draft card remove buttons replace wrong files without changing text or sav
   await expect(page.locator(".answer .attachment-remove")).toHaveCount(0);
   expect(generated).toHaveLength(1);
 });
+
+test("image version remains reachable below Privacy with long history and a short drawer", async ({
+  page,
+}, info) => {
+  let tag = "9.8.7-rc.1";
+  for (const routePath of ["**/api/auth/login", "**/api/auth/session"]) {
+    await page.route(routePath, async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({
+        response,
+        json: data.owner_id ? { ...data, image_version: tag } : data,
+      });
+    });
+  }
+  await page.route("**/api/conversations?q=*", async (route) => {
+    await route.fulfill({
+      json: Array.from({ length: 60 }, (_, i) => ({
+        id: `version-history-${i}`,
+        title: `Long synthetic history ${i}`,
+        created_at: 1,
+        updated_at: 1,
+      })),
+    });
+  });
+  await signIn(page);
+  const footer = page.getByLabel("Application version", { exact: true });
+  const sidebar = page.getByRole("complementary", {
+    name: "Navigation",
+    exact: true,
+  });
+  const mobile = info.project.name !== "polish-desktop";
+  if (mobile)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await footer.scrollIntoViewIfNeeded();
+  await expect(footer).toBeInViewport();
+  await expect(footer).toHaveText("labchatbot v9.8.7-rc.1");
+  expect(
+    await footer.evaluate(
+      (node) => node.parentElement?.lastElementChild === node,
+    ),
+  ).toBe(true);
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.screenshot({
+      path: `../artifacts/image-version-${info.project.name}-${scheme}.png`,
+      fullPage: true,
+    });
+  }
+  await page.setViewportSize({ width: mobile ? 360 : 1280, height: 450 });
+  if (!mobile)
+    await page.getByRole("button", { name: "Sign out", exact: true }).focus();
+  await footer.scrollIntoViewIfNeeded();
+  await expect(footer).toBeInViewport();
+  expect(
+    await sidebar.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
+  tag = "v9";
+  await page.reload();
+  if (mobile)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await footer.scrollIntoViewIfNeeded();
+  await expect(footer).toHaveText("labchatbot v9");
+});

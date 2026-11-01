@@ -34,6 +34,7 @@ from app.services.comparisons import ComparisonService
 from app.services.image_catalog import ImageCatalog
 from app.services.images import ImageService
 from app.services.runs import RunService
+from app.version import image_version
 
 
 class ErrorBody(BaseModel):
@@ -64,6 +65,7 @@ class LoginRequest(BaseModel):
 
 
 class SessionInfo(BaseModel):
+    image_version: str | None
     owner_id: str
     csrf_token: str
     expires_at: int
@@ -92,6 +94,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        app.state.image_version = image_version()
         engine = create_database(config)
         try:
             migrate(engine)
@@ -225,6 +228,7 @@ def create_app(
 
     def session_info(session: OwnerSession) -> SessionInfo:
         return SessionInfo(
+            image_version=app.state.image_version,
             owner_id=session.owner_id,
             csrf_token=session.csrf_token,
             expires_at=session.expires_at,
