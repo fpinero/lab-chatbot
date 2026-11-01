@@ -2,7 +2,14 @@ import { defineConfig, devices } from "@playwright/test";
 
 const apiPort = Number(process.env.LAB_BROWSER_API_PORT ?? "8000");
 const uiPort = Number(process.env.LAB_BROWSER_UI_PORT ?? "5173");
-const instances = ["desktop", "mobile", "pixel-10"].map((name, index) => ({
+const instances = [
+  "desktop",
+  "mobile",
+  "pixel-10",
+  "polish-desktop",
+  "polish-mobile",
+  "polish-pixel-10",
+].map((name, index) => ({
   name,
   apiPort: apiPort + index * 10,
   uiPort: uiPort + index * 10,
@@ -14,7 +21,7 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
-      testIgnore: "**/mobile-ux.spec.ts",
+      testIgnore: ["**/mobile-ux.spec.ts", "**/ui-polish.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
         baseURL: `http://127.0.0.1:${instances[0].uiPort}`,
@@ -22,7 +29,11 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      testIgnore: ["**/mobile-ux.spec.ts", "**/clipboard.spec.ts"],
+      testIgnore: [
+        "**/mobile-ux.spec.ts",
+        "**/clipboard.spec.ts",
+        "**/ui-polish.spec.ts",
+      ],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 360, height: 740 },
@@ -33,7 +44,7 @@ export default defineConfig({
     },
     {
       name: "pixel-10",
-      testMatch: ["**/mobile-ux.spec.ts", "**/ui-polish.spec.ts"],
+      testMatch: "**/mobile-ux.spec.ts",
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 412, height: 924 },
@@ -42,8 +53,26 @@ export default defineConfig({
         baseURL: `http://127.0.0.1:${instances[2].uiPort}`,
       },
     },
+    ...["desktop", "mobile", "pixel-10"].map((name, index) => ({
+      name: `polish-${name}`,
+      testMatch: "**/ui-polish.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(name !== "desktop"
+          ? {
+              viewport: {
+                width: name === "mobile" ? 360 : 412,
+                height: name === "mobile" ? 740 : 924,
+              },
+              isMobile: true,
+              hasTouch: true,
+            }
+          : {}),
+        baseURL: `http://127.0.0.1:${instances[index + 3].uiPort}`,
+      },
+    })),
   ],
-  // Each device project has its own data, sessions, queue and rate window.
+  // Each suite/device instance has its own data, sessions, queue and real rate limits.
   webServer: instances.flatMap((instance) => [
     {
       command: "../backend/.venv/bin/python ../scripts/browser-backend.py",

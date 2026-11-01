@@ -14,7 +14,15 @@ import {
 } from "../../lib/api";
 import { copy } from "../../lib/copy";
 
-export function AttachmentPreview({ items }: { items: AttachmentInfo[] }) {
+export function AttachmentPreview({
+  items,
+  onRemove,
+  removeDisabled = false,
+}: {
+  items: AttachmentInfo[];
+  onRemove?: (id: string) => void;
+  removeDisabled?: boolean;
+}) {
   return (
     <div className="attachment-list">
       {items.map((item) => (
@@ -42,6 +50,28 @@ export function AttachmentPreview({ items }: { items: AttachmentInfo[] }) {
               </details>
             )}
           </div>
+          {onRemove && (
+            <button
+              className="plain-button attachment-remove"
+              type="button"
+              title={`${copy.removeFromDraft}: ${item.display_name}`}
+              aria-label={`${copy.removeFromDraft}: ${item.display_name}`}
+              disabled={removeDisabled}
+              onClick={() => onRemove(item.id)}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M6 6L18 18M6 18L18 6" />
+              </svg>
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -79,6 +109,8 @@ export default function AttachmentPicker({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const optionsRef = useRef<HTMLDetailsElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const uploadPending = useRef(false);
   const mounted = useRef(false);
   const busyCallback = useRef(onBusyChange);
@@ -213,6 +245,7 @@ export default function AttachmentPicker({
     <label className="file-button" title={copy.pasteImagesHint}>
       {busy ? copy.uploading : compact ? copy.attachShort : copy.attachFiles}
       <input
+        ref={uploadInputRef}
         type="file"
         aria-label={label}
         multiple
@@ -247,21 +280,25 @@ export default function AttachmentPicker({
           {error}
         </p>
       )}
-      <AttachmentPreview items={items} />
-      {items.map((item) => (
-        <button
-          className="plain-button"
-          type="button"
-          key={item.id}
-          aria-label={`${copy.removeFromDraft}: ${item.display_name}`}
-          onClick={() =>
-            onChange(items.filter((value) => value.id !== item.id))
-          }
-          disabled={disabled || busy}
-        >
-          {copy.removeFromDraft}: {item.display_name}
-        </button>
-      ))}
+      <AttachmentPreview
+        items={items}
+        removeDisabled={disabled || busy}
+        onRemove={(id) => {
+          if (disabled || uploadPending.current) return;
+          const index = items.findIndex((item) => item.id === id);
+          if (index < 0) return;
+          const buttons =
+            pickerRef.current?.querySelectorAll<HTMLButtonElement>(
+              ".attachment-remove",
+            );
+          const next =
+            buttons?.[index + 1] ??
+            buttons?.[index - 1] ??
+            uploadInputRef.current;
+          next?.focus();
+          onChange(items.filter((item) => item.id !== id));
+        }}
+      />
       {items.length > 0 && (
         <small className="extraction-notice">
           {imageOnly ? copy.imageReferenceNotice : copy.extractionNotice}
@@ -280,7 +317,7 @@ export default function AttachmentPicker({
   );
   if (compact)
     return (
-      <div className="attachment-picker compact-picker">
+      <div className="attachment-picker compact-picker" ref={pickerRef}>
         {(items.length > 0 || error) && (
           <div className="attachment-feedback">{feedback}</div>
         )}
@@ -310,7 +347,7 @@ export default function AttachmentPicker({
       </div>
     );
   return (
-    <div className="attachment-picker">
+    <div className="attachment-picker" ref={pickerRef}>
       {control}
       {limitNotice}
       {feedback}

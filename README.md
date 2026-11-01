@@ -66,6 +66,8 @@ scripts/verify-local.sh
 
 This runs frozen installs, Ruff, mypy, pytest, generated contract verification, formatting, TypeScript, Vitest, production build and Playwright desktop/mobile workflows. Browser tests use an isolated temporary database and synthetic credentials, without changing local owner settings. Screenshots stay in ignored `artifacts/`. CI runs verification and has no deployment step.
 
+The UI polish browser suite uses separate data, sessions and rate windows at API/UI port offsets +30, +40 and +50 from the configured base ports, alongside the original desktop/mobile/Pixel instances at +0, +10 and +20. This prevents cross-suite interference without weakening the real upload or generation throttles. Native operating-system zoom, keyboard and clipboard capture checks remain distinct from CSS-viewport reflow and browser emulation.
+
 Regenerate API types after a schema change:
 
 ```sh
@@ -99,6 +101,10 @@ Each new request persists an immutable input snapshot and an idempotency key bef
 
 Cancellation preserves partial text and may not stop billing. Missing usage, interrupted requests and uncertain outcomes keep reservations. An authenticated billing check can retrieve known generation metadata without creating another generation. Usage records remain after conversation deletion, including an idempotency tombstone so replaying a deleted request cannot spend again.
 
+Copy response, Copy prompt and Copy code show Copied for two seconds after a successful clipboard write, with an accessible announcement and stable button width. A failed write shows a local manual-copy/retry message. Response and prompt copying preserve the original text/Markdown; code copying preserves the displayed code. Copying does not submit a generation or replace a draft.
+
+The main chat prompt uses an exterior focus indicator instead of drawing a frame over the text. Long prompts grow to the screen-specific limit and then scroll internally; Attach, Options and Send stay available. Keyboard focus indicators remain on other controls.
+
 ## Attachments and comparisons
 
 Chat and Compare accept PNG/JPEG/WebP screenshots and PDF, UTF-8 TXT/Markdown, CSV and DOCX documents. Defaults are five files, 10 MiB per file, 25 MiB per upload, 50 PDF pages, 20 megapixels and 100,000 extracted characters per document. Images are normalized to WebP with metadata removed and a visible resize warning above 2,048 pixels per edge. Documents provide locally extracted text; scanned PDFs without selectable text explicitly require another input because OCR is unavailable. Extraction previews are shortened visibly, while submitted context is never silently truncated.
@@ -106,6 +112,8 @@ Chat and Compare accept PNG/JPEG/WebP screenshots and PDF, UTF-8 TXT/Markdown, C
 Paste a PNG/JPEG/WebP screenshot directly into the Chat, Compare or Image prompt with Command+V on macOS or Ctrl+V on Windows. On macOS, Control+Shift+Command+4 copies a selected area to the clipboard; Shift+Command+4 alone normally saves a file. On Windows, capture an area with Windows+Shift+S, then paste. The pasted image uses the same authenticated upload, normalization, preview, removal and model-compatibility checks as Attach, and belongs only to the current draft. Uploading does not generate an answer; Send, Compare models or Generate must be selected explicitly. In Image mode, a changed reference may refresh the estimate without generating an image.
 
 Ordinary text paste remains native. When the clipboard contains both an image and rich text, the image is attached and the existing prompt stays unchanged. Files are read only from the user's paste event in the prompt, without background clipboard polling or fetching images from pasted HTML/URLs. Unsupported image formats and count/size limits show an error without clearing the draft or its files. Wait for an upload to finish before pasting another image; a concurrent paste is rejected visibly and can be repeated afterwards. The browser must expose image files in the clipboard event. Chromium keyboard paste is covered by local browser tests; physical screenshot capture on macOS/Windows and other browsers remains a device check. See [MDN paste events](https://developer.mozilla.org/en-US/docs/Web/API/Element/paste_event), [Apple screenshot shortcuts](https://support.apple.com/en-us/102646) and [Microsoft Snipping Tool](https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b).
+
+Every draft attachment card has a remove X with a 44-pixel target and an accessible filename label. It removes only that file from the current Chat, Compare or Image draft, preserving the prompt and other files without a confirmation dialog. Focus moves to another remove control or Attach. Removal is disabled while uploading/submitting or editing immutable saved input. Historical previews have no remove action; unreferenced uploads follow the existing retention policy.
 
 Each new prompt sends only its explicitly attached files. Earlier textual prompts and answers remain conversation context, while historical image references and extracted document content are omitted from the new request. A prompt without attachments sends no files. Earlier uploads remain saved with their original turns, and each response displays only that turn's attachments, including in older chats. Explicit repeat/edit reuses the selected turn's own files. Legacy snapshots remain stored unchanged while new requests apply the current attachment scope.
 
@@ -148,3 +156,4 @@ uv run --project backend python scripts/live-image.py \
 Its default only prints a plan and cannot construct an HTTP client. `--execute` performs one image request with the smallest advertised tier under the selected server spending policy, checks the authenticated download and records sanitized status/cost evidence in ignored `artifacts/live-image.json`. Unknown cost or an incomplete output causes a failed verification result without an automatic retry. Provider mode needs no separate image allowance; application mode retains its explicit allowance requirements.
 
 One authenticated browser text smoke check passed with a restricted provider key and approved limits. It verified a completed response, actual usage/cost, persisted history after reload and exactly one generation. This was ordinary interactive workspace usage, not the opt-in CLI verification path; its cost is included in the provider key usage. Application mode must also include it when planning cumulative test allowances. One live image is also verified, as described above. Live vision/document/comparison verification, video generation, container release validation and deployment remain pending.
+

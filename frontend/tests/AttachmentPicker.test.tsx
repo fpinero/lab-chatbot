@@ -8,7 +8,9 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
-import AttachmentPicker from "../src/features/attachments/AttachmentPicker";
+import AttachmentPicker, {
+  AttachmentPreview,
+} from "../src/features/attachments/AttachmentPicker";
 import {
   ApiError,
   attachmentApi,
@@ -272,4 +274,37 @@ test("a pasted upload with an expired session follows the authentication failure
   await waitFor(() => expect(failed).toHaveBeenCalledWith(error));
   expect(changed).not.toHaveBeenCalled();
   expect(target).toHaveValue("Keep this prompt");
+});
+
+test("card removal uses attachment identity and moves focus to the next card or Attach", async () => {
+  const second = { ...image, id: "second-image" };
+  const { changed, target } = fixture({ initial: [image, second] });
+  const buttons = screen.getAllByRole("button", { name: /Remove from draft/ });
+  expect(buttons[0].closest(".attachment-item")).not.toBeNull();
+  await userEvent.click(buttons[0]);
+  expect(changed).toHaveBeenLastCalledWith([second]);
+  expect(
+    screen.getByRole("button", { name: /Remove from draft/ }),
+  ).toHaveFocus();
+  expect(target).toHaveValue("Keep this prompt");
+  await userEvent.click(
+    screen.getByRole("button", { name: /Remove from draft/ }),
+  );
+  expect(changed).toHaveBeenLastCalledWith([]);
+  expect(screen.getByLabelText("Attach files")).toHaveFocus();
+});
+
+test("immutable previews have no removal action and locked drafts cannot remove files", async () => {
+  const view = render(<AttachmentPreview items={[image]} />);
+  expect(screen.getByRole("img")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: /Remove from draft/ }),
+  ).not.toBeInTheDocument();
+  view.unmount();
+  const { changed } = fixture({ disabled: true, initial: [image] });
+  const remove = screen.getByRole("button", { name: /Remove from draft/ });
+  expect(remove).toBeDisabled();
+  await userEvent.click(remove);
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.getByRole("img")).toBeInTheDocument();
 });

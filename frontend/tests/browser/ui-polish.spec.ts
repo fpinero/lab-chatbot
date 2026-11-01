@@ -148,9 +148,9 @@ test("long prompts keep an exterior focus cue and bounded scrolling without hidi
   }
   // A 640x450 CSS viewport exercises the reflow geometry of 1280x900 at 200% zoom.
   const width =
-    info.project.name === "desktop"
+    info.project.name === "polish-desktop"
       ? 640
-      : info.project.name === "mobile"
+      : info.project.name === "polish-mobile"
         ? 360
         : 412;
   await page.setViewportSize({ width, height: 450 });
@@ -177,4 +177,132 @@ test("long prompts keep an exterior focus cue and bounded scrolling without hidi
   expect((await input.boundingBox())!.height).toBeLessThan(70);
   await input.press("Tab");
   await expect(page.getByLabel("Attach files to chat")).toBeFocused();
+});
+
+test("draft card remove buttons replace wrong files without changing text or saved history", async ({
+  page,
+}, info) => {
+  await signIn(page);
+  const generated: string[] = [],
+    deleted: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      request.method() === "POST" &&
+      ["/api/runs", "/api/comparisons", "/api/images/jobs"].includes(path)
+    )
+      generated.push(path);
+    if (request.method() === "DELETE" && path.startsWith("/api/attachments"))
+      deleted.push(path);
+  });
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 80;
+    canvas.height = 48;
+    canvas.getContext("2d")!.fillRect(0, 0, 80, 48);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  const upload = async (label: string, names: string[]) => {
+    const response = page.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        new URL(r.url()).pathname === "/api/attachments",
+    );
+    await page.getByLabel(label, { exact: true }).setInputFiles(
+      names.map((name) => ({
+        name,
+        mimeType: "image/png",
+        buffer: Buffer.from(png, "base64"),
+      })),
+    );
+    return (await (await response).json()) as {
+      id: string;
+      display_name: string;
+    }[];
+  };
+  const draft = page.getByLabel("Message", { exact: true });
+  const text = `Preserve this prompt ${info.project.name}`;
+  await draft.fill(text);
+  const initial = await upload("Attach files to chat", [
+    `wrong-${"long-name-".repeat(10)}.png`,
+    "also-wrong.png",
+  ]);
+  const picker = page.locator(".compact-picker");
+  await expect(picker.locator(".attachment-item")).toHaveCount(2);
+  const remove = picker.locator(".attachment-remove");
+  const bounds = (await remove.first().boundingBox())!;
+  expect(bounds.width).toBeGreaterThanOrEqual(44);
+  expect(bounds.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({
+    path: `../artifacts/ui3-draft-${info.project.name}.png`,
+    fullPage: true,
+  });
+  await remove.first().click();
+  await expect(picker.locator(".attachment-item")).toHaveCount(1);
+  await expect(remove.first()).toBeFocused();
+  await expect(draft).toHaveValue(text);
+  await remove.first().click();
+  await expect(picker.locator(".attachment-item")).toHaveCount(0);
+  await expect(
+    page.getByLabel("Attach files to chat", { exact: true }),
+  ).toBeFocused();
+  const correct = await upload("Attach files to chat", ["correct.png"]);
+  await expect(picker.locator(".attachment-item")).toHaveCount(1);
+  for (const mode of ["compare", "images"] as const) {
+    await page.getByLabel("Mode", { exact: true }).selectOption(mode);
+    const region = page.getByRole("region", {
+      name: mode === "compare" ? "Compare" : "Image",
+      exact: true,
+    });
+    const input = region.getByLabel(
+      mode === "compare" ? "Comparison prompt" : "Image prompt",
+      { exact: true },
+    );
+    await input.fill(`Preserve ${mode} draft`);
+    await upload(
+      mode === "compare"
+        ? "Attach files to comparison"
+        : "Attach reference images",
+      [`wrong-${mode}.png`],
+    );
+    await expect(region.locator(".attachment-item")).toHaveCount(1);
+    await region.getByRole("button", { name: /Remove from draft/ }).click();
+    await expect(region.locator(".attachment-item")).toHaveCount(0);
+    await expect(input).toHaveValue(`Preserve ${mode} draft`);
+  }
+  await page.getByLabel("Mode", { exact: true }).selectOption("chat");
+  await expect(draft).toHaveValue(text);
+  await expect(picker.locator(".attachment-item strong")).toHaveText(
+    "correct.png",
+  );
+  expect(generated).toHaveLength(0);
+  expect(deleted).toHaveLength(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  const response = page.waitForResponse(
+    (r) =>
+      r.request().method() === "POST" &&
+      new URL(r.url()).pathname === "/api/runs",
+  );
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  const saved = await (await response).json();
+  expect(saved.attachments.map((item: { id: string }) => item.id)).toEqual([
+    correct[0].id,
+  ]);
+  expect(
+    saved.attachments.some((item: { id: string }) =>
+      initial.some((old) => old.id === item.id),
+    ),
+  ).toBe(false);
+  await expect(
+    page.getByRole("status").filter({ hasText: "Completed" }),
+  ).toHaveCount(1);
+  await expect(page.locator(".answer .attachment-item strong")).toHaveText(
+    "correct.png",
+  );
+  await expect(page.locator(".answer .attachment-remove")).toHaveCount(0);
+  expect(generated).toHaveLength(1);
 });

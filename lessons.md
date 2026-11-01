@@ -34,3 +34,7 @@
 ## 2026-11-01: Measure clipboard feedback layout
 
 - Existing broad button-span rules can change the intrinsic size of a nested status label. Scope spacing for reusable controls and measure the real button before/after success in browser tests; preserving the original label through a CSS pseudo-element avoids extra accessible or textContent labels.
+
+## 2026-11-01: Isolate growing suites without weakening throttles
+
+- Device isolation alone is insufficient when expanded concurrent suites exceed the same owner's real upload window. Give independently heavy suites their own backend/UI/data instances rather than increasing application limits, clearing production-like throttle records or adding timing sleeps. Keep the upload limits exercised unchanged in the final full suite.
