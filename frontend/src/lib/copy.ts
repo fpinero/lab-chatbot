@@ -104,6 +104,8 @@ export const copy = {
   extractedPreview: "Extracted text preview",
   extractionNotice:
     "Documents are extracted locally and sent as text. Screenshots require image-input support.",
+  attachmentHelp: "About attachments",
+  closeAttachmentHelp: "Close attachment help",
   previewTruncated:
     "Preview shortened; the full extracted text is retained for context.",
   uploadFailed: "Upload failed. Check the file format and configured limits.",

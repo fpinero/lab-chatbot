@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type ReactNode,
@@ -108,6 +109,7 @@ export default function AttachmentPicker({
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const helpId = useId();
   const optionsRef = useRef<HTMLDetailsElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -273,6 +275,42 @@ export default function AttachmentPicker({
       )}
     </span>
   );
+  const help = (
+    <>
+      <button
+        type="button"
+        className="plain-button attachment-help-trigger"
+        popoverTarget={helpId}
+        aria-label={copy.attachmentHelp}
+      >
+        ?
+      </button>
+      <div
+        id={helpId}
+        popover="auto"
+        role="note"
+        aria-label={copy.attachmentHelp}
+        className="attachment-help-popover"
+      >
+        <div className="attachment-help-heading">
+          <strong>{copy.attachmentHelp}</strong>
+          <button
+            type="button"
+            className="plain-button"
+            popoverTarget={helpId}
+            popoverTargetAction="hide"
+            aria-label={copy.closeAttachmentHelp}
+          >
+            ×
+          </button>
+        </div>
+        <p>{imageOnly ? copy.imageReferenceNotice : copy.extractionNotice}</p>
+        {!imageOnly && limits?.spend_control === "provider" && (
+          <p>{copy.providerVision}</p>
+        )}
+      </div>
+    </>
+  );
   const feedback = (
     <>
       {error && (
@@ -299,20 +337,15 @@ export default function AttachmentPicker({
           onChange(items.filter((item) => item.id !== id));
         }}
       />
-      {items.length > 0 && (
-        <small className="extraction-notice">
-          {imageOnly ? copy.imageReferenceNotice : copy.extractionNotice}
-        </small>
-      )}
-      {!imageOnly && items.some((item) => item.kind === "image") && limits && (
-        <small className="extraction-notice">
-          {limits.spend_control === "provider"
-            ? copy.providerVision
-            : limits.vision_allowance_microusd > 0
+      {!imageOnly &&
+        items.some((item) => item.kind === "image") &&
+        limits?.spend_control === "application" && (
+          <small className="extraction-notice">
+            {limits.vision_allowance_microusd > 0
               ? `${copy.visionAllowance}: $${(limits.vision_allowance_microusd / 1000000).toFixed(6)}`
               : copy.visionUnconfigured}
-        </small>
-      )}
+          </small>
+        )}
     </>
   );
   if (compact)
@@ -324,6 +357,7 @@ export default function AttachmentPicker({
         {children}
         <div className="composer-toolbar">
           {control}
+          {help}
           <details
             ref={optionsRef}
             className="composer-options"
@@ -348,8 +382,11 @@ export default function AttachmentPicker({
     );
   return (
     <div className="attachment-picker" ref={pickerRef}>
-      {control}
-      {limitNotice}
+      <div className="attachment-upload-controls">
+        {control}
+        {help}
+        {limitNotice}
+      </div>
       {feedback}
     </div>
   );

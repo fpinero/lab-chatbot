@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
@@ -48,12 +49,13 @@ function fixture(
     disabled?: boolean;
     initial?: AttachmentInfo[];
     readOnly?: boolean;
+    limits?: UploadLimits;
   } = {},
 ) {
   const changed = vi.fn(),
     busy = vi.fn(),
     failed = vi.fn();
-  vi.spyOn(attachmentApi, "limits").mockResolvedValue(limits);
+  vi.spyOn(attachmentApi, "limits").mockResolvedValue(options.limits ?? limits);
   const upload = vi.spyOn(attachmentApi, "upload").mockResolvedValue([image]);
   function Fixture() {
     const target = useRef<HTMLTextAreaElement>(null);
@@ -130,6 +132,54 @@ test("an image paste uploads once, preserves the prompt and can be removed", asy
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
   expect(changed).toHaveBeenLastCalledWith([]);
 });
+
+test("generic attachment information belongs to help while file warnings stay on the card", async () => {
+  fixture({
+    initial: [{ ...image, warnings: ["Synthetic file-specific warning"] }],
+  });
+  const help = screen.getByRole("note", {
+    hidden: true,
+  });
+  await waitFor(() =>
+    expect(help).toHaveTextContent("Uses the shared OpenRouter key budget"),
+  );
+  expect(help).toHaveTextContent(
+    "Documents are extracted locally and sent as text",
+  );
+  const feedback = document.querySelector(".attachment-feedback")!;
+  expect(feedback).not.toHaveTextContent("Documents are extracted locally");
+  expect(feedback).not.toHaveTextContent(
+    "Uses the shared OpenRouter key budget",
+  );
+  expect(
+    within(feedback as HTMLElement).getByText(
+      "Synthetic file-specific warning",
+    ),
+  ).toBeVisible();
+});
+
+test.each([0, 12000])(
+  "application vision allowance %s stays visible without claiming a shared provider budget",
+  async (allowance) => {
+    fixture({
+      initial: [image],
+      limits: {
+        ...limits,
+        spend_control: "application",
+        vision_allowance_microusd: allowance,
+      },
+    });
+    const message = allowance
+      ? "Configured vision allowance per model: $0.012000"
+      : "Live vision requires an explicitly configured allowance for uncertain input pricing.";
+    expect(await screen.findByText(message)).toBeVisible();
+    expect(
+      screen.queryByText(
+        "Uses the shared OpenRouter key budget. Image-input pricing may be uncertain.",
+      ),
+    ).not.toBeInTheDocument();
+  },
+);
 
 test("text paste is native and pasting outside the prompt never uploads", async () => {
   const { target, upload } = fixture();

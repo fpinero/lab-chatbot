@@ -9,6 +9,132 @@ async function signIn(page: Page) {
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 
+test("attachment help keeps the composer clean and opens with touch or keyboard without submitting", async ({
+  page,
+}, info) => {
+  const generations: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      ["/api/runs", "/api/comparisons", "/api/images/jobs"].includes(
+        new URL(request.url()).pathname,
+      )
+    )
+      generations.push(request.url());
+  });
+  await page.route("**/api/attachments/limits", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), spend_control: "provider" },
+    });
+  });
+  await signIn(page);
+  const draft = page.getByLabel("Message", { exact: true });
+  await draft.fill("Preserve this prompt while reading attachment help");
+  const picker = page.locator(".compact-picker");
+  const trigger = picker.getByRole("button", {
+    name: "About attachments",
+    exact: true,
+  });
+  const panel = picker.locator(".attachment-help-popover");
+  await expect(panel).toBeHidden();
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 80;
+    canvas.height = 48;
+    canvas.getContext("2d")!.fillRect(0, 0, 80, 48);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByLabel("Attach files to chat", { exact: true }).setInputFiles({
+    name: "synthetic-help.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  });
+  await expect(picker.locator(".attachment-item")).toHaveCount(1);
+  await expect(picker.locator(".attachment-feedback")).not.toContainText(
+    "Documents are extracted locally",
+  );
+  await expect(picker.locator(".attachment-feedback")).not.toContainText(
+    "Uses the shared OpenRouter key budget",
+  );
+  const before = (await picker.boundingBox())!;
+  const triggerBounds = (await trigger.boundingBox())!;
+  expect(triggerBounds.width).toBeGreaterThanOrEqual(44);
+  expect(triggerBounds.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({
+    path: `../artifacts/attachment-help-closed-${info.project.name}.png`,
+  });
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    if (info.project.use.hasTouch) await trigger.tap();
+    else {
+      await trigger.focus();
+      await trigger.press("Enter");
+    }
+    await expect(panel).toBeVisible();
+    await expect(
+      page.getByRole("note", { name: "About attachments" }),
+    ).toBeVisible();
+    await expect(panel).toContainText(
+      "Documents are extracted locally and sent as text",
+    );
+    await expect(panel).toContainText("Uses the shared OpenRouter key budget");
+    const bounds = (await panel.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(
+      page.viewportSize()!.width,
+    );
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(
+      page.viewportSize()!.height,
+    );
+    expect((await picker.boundingBox())!.height).toBe(before.height);
+    await page.screenshot({
+      path: `../artifacts/attachment-help-open-${scheme}-${info.project.name}.png`,
+    });
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(trigger).toBeFocused();
+  }
+  await trigger.click();
+  await page
+    .getByRole("heading", { name: "A little room for big ideas.", exact: true })
+    .click();
+  await expect(panel).toBeHidden();
+  await draft.click();
+  await expect(draft).toBeFocused();
+  await trigger.click();
+  await panel.getByRole("button", { name: "Close attachment help" }).click();
+  await expect(panel).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await expect(draft).toHaveValue(
+    "Preserve this prompt while reading attachment help",
+  );
+  await expect(picker.locator(".attachment-item")).toHaveCount(1);
+  for (const mode of ["compare", "images"] as const) {
+    await page.getByLabel("Mode", { exact: true }).selectOption(mode);
+    const region = page.getByRole("region", {
+      name: mode === "compare" ? "Compare" : "Image",
+      exact: true,
+    });
+    const help = region.locator(".attachment-help-popover");
+    await region
+      .getByRole("button", { name: "About attachments", exact: true })
+      .click();
+    await expect(help).toBeVisible();
+    await expect(help).toContainText(
+      mode === "compare"
+        ? "Documents are extracted locally"
+        : "Reference images are sent to the selected generation provider",
+    );
+    await page.keyboard.press("Escape");
+    await expect(help).toBeHidden();
+  }
+  await page.unrouteAll({ behavior: "wait" });
+  expect(generations).toHaveLength(0);
+});
+
 test("prompt Enter follows input capabilities across narrow desktop and wide touch layouts", async ({
   page,
 }, info) => {
