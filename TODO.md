@@ -6,9 +6,11 @@ The owner authorized staged deployment from integrated main, ahead of the remain
 
 The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
 
-## External verification prerequisites
+## Attachment information help
 
-- [ ] Confirm multiline Enter and the return-key label on the owner's physical Pixel 10 Pro after reloading version 10. Native Chromium key events are verified in touch emulation; the actual virtual keyboard remains a device check.
+- [ ] Integrate and deploy the next live-derived image with encrypted recovery and data-preservation checks.
+
+## External verification prerequisites
 
 - [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 10; physical platform/browser checks remain separate.
 

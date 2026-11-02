@@ -46,3 +46,8 @@
 ## 2026-11-01: Distinguish continued use from lost history
 
 - A strict snapshot comparison can flag legitimate conversation head/timestamp changes when an owner resumes using the application after backup. Preserve the actual differences in evidence and verify original immutable fields/files, ownership, new-turn ordering, saved context and the corresponding usage entry. Do not erase differences, restore production data or repeat a healthy rollout merely to make mutable conversation metadata equal an earlier snapshot.
+
+## 2026-11-02: Exercise real popover dismissal and complete intercepted reads
+
+- An anchored help card can cover the draft intentionally. Test light-dismiss by clicking an uncovered area, not by forcing a click through the card; retain separate explicit-close, Escape and focus assertions.
+- Await in-flight request interception with unrouteAll behavior wait before disposing a browser fixture. A lazily mounted picker can start its limits read after the visible help interaction finishes; suppressing errors or extending the timeout hides the lifecycle problem instead of resolving it.

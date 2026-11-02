@@ -1257,6 +1257,62 @@ button:disabled {
 .attachment-feedback .attachment-list {
   margin: 0;
 }
+.attachment-upload-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.attachment-upload-controls .file-button {
+  margin-right: 0;
+}
+.attachment-upload-controls .attachment-help-trigger,
+.composer-toolbar .attachment-help-trigger {
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 16px;
+}
+.attachment-help-popover {
+  position: fixed;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(440px, 70dvh);
+  overflow-y: auto;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 32px #0003;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.attachment-help-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.attachment-help-heading button {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 20px;
+}
+.attachment-help-popover p {
+  margin: 8px 0 0;
+}
+@supports (position-area: top span-all) {
+  .attachment-help-popover {
+    inset: auto;
+    margin: 8px 0;
+    position-area: top span-all;
+    justify-self: center;
+    position-try-fallbacks: flip-block;
+  }
+}
 @media (max-width: 760px) {
   .chat-composer {
     padding-bottom: max(6px, env(safe-area-inset-bottom));
