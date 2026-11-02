@@ -2,17 +2,13 @@
 
 Only pending work belongs here. Each milestone starts after the preceding milestone is verified and integrated remotely. Keep every milestone branch for at least seven days after merge, with no automatic cleanup.
 
-The owner authorized staged deployment from integrated main, ahead of the remaining application milestones. Version 10 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
+The owner authorized staged deployment from integrated main, ahead of the remaining application milestones. Version 11 is deployed and verified at https://labchatbot.nivelepsilon.com using the existing Cloudflare Full/Traefik pattern. Complete the remaining application and operational follow-up work without changing unrelated shared infrastructure.
 
 The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
 
-## Attachment information help
-
-- [ ] Integrate and deploy the next live-derived image with encrypted recovery and data-preservation checks.
-
 ## External verification prerequisites
 
-- [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 10; physical platform/browser checks remain separate.
+- [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 11; physical platform/browser checks remain separate.
 
 
 
@@ -39,6 +35,7 @@ The owner prioritized mobile reading space and model search ahead of the remaini
 
 ## M7: Deployment preparation
 
+- [ ] Diagnose the intermittent first public-root 404 after ready Recreate rollouts, seen in versions 7 and 11. Acceptance: correlate endpoint, Traefik and public-response timestamps without repeating a successful Deployment write; preserve explicit failure for persistent routing errors.
 - [ ] Verify real concurrent release collision handling and receipt-guided rollback. Version 2 exercised next-tag derivation, the release Lease and one resourceVersion CAS update successfully. Actual rollback and collision/recovery operations remain separate from synthetic regressions.
 - [ ] Integrate any resulting deployment follow-up changes through CI and PR, retaining branches.
 
