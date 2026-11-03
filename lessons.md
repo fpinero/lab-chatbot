@@ -61,3 +61,7 @@
 ## 2026-11-03: Match catalog state lifetime to its owner
 
 - Relative cooldown metadata represents one response at receipt time. Reapplying it after a keyed composer remount restarts a delay that may already have elapsed. Keep catalog request/deadline/feedback state at workspace lifetime and render a disposable button view. Test both an expired wait and a pending response across actual New conversation reconstruction, while retaining the separate full-workspace unmount guard.
+
+## 2026-11-03: Surface current CI evidence before integration
+
+- Confirm completed/success checks for the exact PR head in a separate read-only step before proposing a merge. A background watcher exiting successfully while its output stays in a local log does not expose that updated state to reviewers. Refresh the evidence when the last visible status was still in progress, and preserve the same verified-head merge guard.
