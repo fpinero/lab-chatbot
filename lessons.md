@@ -51,3 +51,13 @@
 
 - An anchored help card can cover the draft intentionally. Test light-dismiss by clicking an uncovered area, not by forcing a click through the card; retain separate explicit-close, Escape and focus assertions.
 - Await in-flight request interception with unrouteAll behavior wait before disposing a browser fixture. A lazily mounted picker can start its limits read after the visible help interaction finishes; suppressing errors or extending the timeout hides the lifecycle problem instead of resolving it.
+
+## 2026-11-03: Keep explicit refresh results distinct from cached fallback
+
+- A cached catalog can remain usable while an explicit provider refresh fails. Preserve the cache but report the manual failure; cache freshness alone must not produce a successful refresh response. Scope pending/success/failure feedback to the operation so a later success clears its own error without erasing unrelated generation failures.
+- Derive cooldown metadata and Retry-After from the actual last provider attempt, including automatic reads. A generic 429 delay can disagree with the catalog window. Use relative wait durations and a monotonic client timer, keep server enforcement intact, and test rejected attempts without resetting the window.
+- Flush timer-driven React state before clicking a control that becomes enabled in a test. Use fail-fast shell sequencing for verification gates; a later successful command must not mask an earlier formatting failure. Recheck final-added regressions before opening the PR.
+
+## 2026-11-03: Match catalog state lifetime to its owner
+
+- Relative cooldown metadata represents one response at receipt time. Reapplying it after a keyed composer remount restarts a delay that may already have elapsed. Keep catalog request/deadline/feedback state at workspace lifetime and render a disposable button view. Test both an expired wait and a pending response across actual New conversation reconstruction, while retaining the separate full-workspace unmount guard.

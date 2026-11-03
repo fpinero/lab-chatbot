@@ -1,17 +1,93 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, expect, test, vi } from "vitest";
-import CatalogRefresh from "../src/features/chat/CatalogRefresh";
+import CatalogRefresh, {
+  useCatalogRefresh,
+} from "../src/features/chat/CatalogRefresh";
 import { ApiError, request } from "../src/lib/api";
 
 afterEach(() => vi.useRealTimers());
 const catalog = { fetched_at: 1, refresh_after_seconds: 0 };
 const button = () => screen.getByRole("button", { name: "Refresh models" });
+function RefreshFixture(props: {
+  catalog: typeof catalog;
+  refresh: () => Promise<typeof catalog>;
+  onRefresh: (value: typeof catalog) => void;
+  expired: () => void;
+}) {
+  const control = useCatalogRefresh(props);
+  return <CatalogRefresh control={control} />;
+}
+
+test("rebuilding the composer does not restart an expired catalog wait", async () => {
+  vi.useFakeTimers();
+  const initial = { ...catalog, refresh_after_seconds: 3 };
+  function Fixture() {
+    const [epoch, setEpoch] = useState(0);
+    const control = useCatalogRefresh({
+      catalog: initial,
+      refresh: vi.fn(),
+      onRefresh: vi.fn(),
+      expired: vi.fn(),
+    });
+    return (
+      <>
+        <button onClick={() => setEpoch((n) => n + 1)}>Reset composer</button>
+        <CatalogRefresh key={epoch} control={control} />
+      </>
+    );
+  }
+  render(<Fixture />);
+  await act(async () => {
+    vi.advanceTimersByTime(3000);
+  });
+  expect(button()).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Reset composer" }));
+  expect(button()).toBeEnabled();
+});
+
+test("rebuilding the composer preserves an in-flight refresh and its result", async () => {
+  let complete!: (value: typeof catalog) => void;
+  const onRefresh = vi.fn();
+  const refresh = vi.fn(
+    () =>
+      new Promise<typeof catalog>((resolve) => {
+        complete = resolve;
+      }),
+  );
+  function Fixture() {
+    const [epoch, setEpoch] = useState(0);
+    const control = useCatalogRefresh({
+      catalog,
+      refresh,
+      onRefresh,
+      expired: vi.fn(),
+    });
+    return (
+      <>
+        <button onClick={() => setEpoch((n) => n + 1)}>Reset composer</button>
+        <CatalogRefresh key={epoch} control={control} />
+      </>
+    );
+  }
+  render(<Fixture />);
+  fireEvent.click(button());
+  fireEvent.click(screen.getByRole("button", { name: "Reset composer" }));
+  expect(button()).toHaveTextContent("Refreshing models...");
+  expect(button()).toBeDisabled();
+  await act(async () => {
+    complete({ ...catalog, fetched_at: 2 });
+  });
+  expect(refresh).toHaveBeenCalledOnce();
+  expect(onRefresh).toHaveBeenCalledOnce();
+  expect(screen.getByRole("status")).toHaveTextContent("Models refreshed.");
+});
 
 test("server cooldown disables refresh until the actual wait expires", async () => {
   vi.useFakeTimers();
   const refresh = vi.fn();
   render(
-    <CatalogRefresh
+    <RefreshFixture
       catalog={{ ...catalog, refresh_after_seconds: 3 }}
       refresh={refresh}
       onRefresh={vi.fn()}
@@ -45,7 +121,7 @@ test("Retry-After is honored and successful retry removes rate-limit feedback", 
     );
   const onRefresh = vi.fn();
   render(
-    <CatalogRefresh
+    <RefreshFixture
       catalog={catalog}
       refresh={() => request<typeof catalog>("/models/refresh", "POST")}
       onRefresh={onRefresh}
@@ -89,7 +165,7 @@ test("failed refresh keeps the saved catalog and clears its error when retry sta
     );
   const onRefresh = vi.fn();
   render(
-    <CatalogRefresh
+    <RefreshFixture
       catalog={catalog}
       refresh={refresh}
       onRefresh={onRefresh}
@@ -124,7 +200,7 @@ test("expired sessions are handled without overwriting catalog state", async () 
   const expired = vi.fn(),
     onRefresh = vi.fn();
   render(
-    <CatalogRefresh
+    <RefreshFixture
       catalog={catalog}
       refresh={vi.fn().mockRejectedValue(new ApiError(401))}
       onRefresh={onRefresh}
@@ -142,7 +218,7 @@ test("unmounted refresh results cannot change another workspace", async () => {
   let complete!: (value: typeof catalog) => void;
   const onRefresh = vi.fn();
   const view = render(
-    <CatalogRefresh
+    <RefreshFixture
       catalog={catalog}
       refresh={() =>
         new Promise((resolve) => {
