@@ -143,14 +143,12 @@ test("a failed initial catalog load can recover without keeping its old error or
   const input = screen.getByLabelText("Message", { exact: true });
   await userEvent.type(input, "Preserve my unsent prompt");
   await userEvent.click(screen.getByText("Options", { exact: true }));
-  await userEvent.click(
-    screen.getByRole("button", { name: "Refresh models" }),
-  );
+  await userEvent.click(screen.getByRole("button", { name: "Refresh models" }));
   expect(await screen.findByText("Models refreshed.")).toBeVisible();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  expect(
-    screen.getByRole("combobox", { name: "Model" }),
-  ).toHaveValue("Local steady");
+  expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue(
+    "Local steady",
+  );
   expect(input).toHaveValue("Preserve my unsent prompt");
   expect(
     fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
