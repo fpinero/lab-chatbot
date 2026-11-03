@@ -396,6 +396,44 @@ def test_image_catalog_keeps_stale_capabilities_and_throttles_refresh(
         assert stale["stale"] and stale["fetched_at"] == first.json()["fetched_at"]
 
 
+def test_image_catalog_manual_refresh_reports_failure_and_recovers(
+    settings_factory: Callable[..., Settings],
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    class FailingCatalog(ControlledImages):
+        fail = False
+
+        async def catalog(self):
+            if self.fail:
+                raise ProviderError("provider_read_failed")
+            return await super().catalog()
+
+    now = [datetime(2026, 7, 1, tzinfo=UTC)]
+    provider = FailingCatalog()
+    with TestClient(
+        create_app(settings_factory(), image_provider=provider, clock=lambda: now[0])
+    ) as client:
+        headers = signin(client)
+        first = client.get("/api/images/models").json()
+        assert first["refresh_after_seconds"] == 60
+        now[0] += timedelta(seconds=11)
+        limited = client.post("/api/images/models/refresh", headers=headers)
+        assert limited.status_code == 429 and limited.headers["Retry-After"] == "49"
+        now[0] += timedelta(seconds=49)
+        provider.fail = True
+        failed = client.post("/api/images/models/refresh", headers=headers)
+        assert failed.status_code == 503 and failed.headers["Retry-After"] == "60"
+        cached = client.get("/api/images/models").json()
+        assert cached["models"] == first["models"] and cached["fetched_at"] == first["fetched_at"]
+        assert cached["stale"] is False and cached["refresh_after_seconds"] == 60
+        provider.fail = False
+        now[0] += timedelta(seconds=60)
+        recovered = client.post("/api/images/models/refresh", headers=headers)
+        assert recovered.status_code == 200 and recovered.json()["fetched_at"] > first["fetched_at"]
+        assert provider.calls == []
+
+
 def test_text_and_image_jobs_share_two_global_generation_slots(
     settings_factory: Callable[..., Settings],
 ) -> None:

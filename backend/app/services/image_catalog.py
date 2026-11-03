@@ -52,6 +52,7 @@ class ImageCatalogInfo(BaseModel):
     fetched_at: int
     stale: bool
     ranking: str
+    refresh_after_seconds: int = Field(default=0, ge=0)
 
 
 class ImageEndpointInfo(BaseModel):
@@ -74,7 +75,7 @@ class ImageCatalog:
         family: str,
         fetch: Callable[[], Awaitable[list[dict[str, Any]]]],
         refresh: bool = False,
-    ) -> tuple[list[dict[str, Any]], int, bool]:
+    ) -> tuple[list[dict[str, Any]], int, bool, int]:
         if self.settings.spend_control == "provider":
             family = f"provider:{family}"
         if (
@@ -102,13 +103,16 @@ class ImageCatalog:
                 )
                 if refresh and attempt and now - attempt < 60:
                     raise AuthError(
-                        429, "catalog_throttled", "Wait before refreshing the image catalog again."
+                        429,
+                        "catalog_throttled",
+                        "Wait before refreshing the image catalog again.",
+                        retry_after=attempt + 60 - now,
                     )
                 should_fetch = refresh or (
                     (not fetched or now - fetched >= 900) and now - attempt >= 60
                 )
                 if should_fetch:
-                    cached.last_attempt_at = now
+                    cached.last_attempt_at = attempt = now
                     db.commit()
             if should_fetch:
                 try:
@@ -122,6 +126,13 @@ class ImageCatalog:
                             row.catalog_json, row.fetched_at = data, fetched
                             db.commit()
                 except ProviderError:
+                    if refresh:
+                        raise AuthError(
+                            503,
+                            "catalog_refresh_failed",
+                            "Could not refresh the model catalog. Try again shortly.",
+                            retry_after=max(1, attempt + 60 - self.now()),
+                        ) from None
                     if not fetched:
                         raise AuthError(
                             503,
@@ -134,7 +145,12 @@ class ImageCatalog:
                     "image_catalog_unavailable",
                     "Image capabilities are unavailable. Try later.",
                 )
-            return list(json.loads(data)), fetched, now - fetched >= 900
+            return (
+                list(json.loads(data)),
+                fetched,
+                now - fetched >= 900,
+                max(0, attempt + 60 - self.now()),
+            )
 
     async def get(self, refresh: bool = False) -> ImageCatalogInfo:
         async def fetch() -> list[dict[str, Any]]:
@@ -163,11 +179,12 @@ class ImageCatalog:
                     continue
             return result
 
-        values, fetched, stale = await self.cached("images", fetch, refresh)
+        values, fetched, stale, refresh_after = await self.cached("images", fetch, refresh)
         models = [ImageModelInfo.model_validate(value) for value in values]
         return ImageCatalogInfo(
             models=models,
             fetched_at=fetched,
+            refresh_after_seconds=refresh_after,
             stale=stale,
             ranking="Simulated catalog"
             if self.settings.provider_mode == "mock"
@@ -207,7 +224,7 @@ class ImageCatalog:
                     continue
             return result
 
-        values, fetched, stale = await self.cached(f"images:{model_id}", fetch)
+        values, fetched, stale, _ = await self.cached(f"images:{model_id}", fetch)
         return ImageEndpointInfo(
             model=model,
             endpoints=[ImageEndpoint.model_validate(value) for value in values],

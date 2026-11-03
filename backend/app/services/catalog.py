@@ -32,6 +32,7 @@ class CatalogInfo(BaseModel):
     fetched_at: int
     stale: bool
     ranking: str
+    refresh_after_seconds: int = Field(default=0, ge=0)
 
 
 class CatalogService:
@@ -119,11 +120,14 @@ class CatalogService:
                 due = now - fetched >= 900 or not fetched
                 if refresh and attempt and now - attempt < 60:
                     raise AuthError(
-                        429, "catalog_throttled", "Wait before refreshing the catalog again."
+                        429,
+                        "catalog_throttled",
+                        "Wait before refreshing the catalog again.",
+                        retry_after=attempt + 60 - now,
                     )
                 should_fetch = refresh or (due and now - attempt >= 60)
                 if should_fetch:
-                    cached.last_attempt_at = now
+                    cached.last_attempt_at = attempt = now
                     db.commit()
             if should_fetch:
                 try:
@@ -138,6 +142,13 @@ class CatalogService:
                             row.catalog_json, row.fetched_at = data, fetched
                             db.commit()
                 except ProviderError:
+                    if refresh:
+                        raise AuthError(
+                            503,
+                            "catalog_refresh_failed",
+                            "Could not refresh the model catalog. Try again shortly.",
+                            retry_after=max(1, attempt + 60 - self.now()),
+                        ) from None
                     if not fetched:
                         raise AuthError(
                             503, "catalog_unavailable", "Model catalog is unavailable. Try later."
@@ -149,6 +160,7 @@ class CatalogService:
             return CatalogInfo(
                 models=[ModelInfo.model_validate(item) for item in json.loads(data)],
                 fetched_at=fetched,
+                refresh_after_seconds=max(0, attempt + 60 - self.now()),
                 stale=now - fetched >= 900,
                 ranking="Simulated catalog"
                 if self.settings.provider_mode == "mock"

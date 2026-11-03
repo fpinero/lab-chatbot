@@ -152,7 +152,18 @@ export const copy = {
   search: "Search history",
   model: "Model",
   refreshModels: "Refresh models",
-  favorite: "Favorite model",
+  refreshingModels: "Refreshing models...",
+  refreshModelsWait: (seconds: number) => `Refresh in ${seconds}s`,
+  modelsUpdated: "Models refreshed.",
+  modelsRecentlyRefreshed:
+    "The catalog was refreshed recently. Wait for the countdown to finish.",
+  catalogRefreshFailed:
+    "Could not refresh the model catalog. Try again shortly.",
+  addFavorite: "Add to favorites",
+  removeFavorite: "Remove from favorites",
+  savingFavorite: "Saving favorite...",
+  favoritesHelp:
+    "Favorites appear first in model search. They do not set the sign-in model.",
   favorites: "Favorites",
   chat: "Chat",
   advanced: "Advanced settings",

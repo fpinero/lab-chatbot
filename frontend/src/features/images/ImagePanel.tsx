@@ -15,6 +15,7 @@ import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
 import SavedPrompt from "../chat/SavedPrompt";
+import CatalogRefresh from "../chat/CatalogRefresh";
 
 const active = (job: MediaJobInfo) =>
   ["queued", "submitting", "running", "cancel_requested"].includes(job.status);
@@ -48,6 +49,7 @@ export default function ImagePanel({
   onUsageChange: () => void;
 }) {
   const [catalog, setCatalog] = useState<ImageCatalogInfo | null>(null);
+  const [catalogLoadError, setCatalogLoadError] = useState("");
   const [modelId, setModelId] = useState("");
   const [details, setDetails] = useState<ImageEndpointInfo | null>(null);
   const [provider, setProvider] = useState("");
@@ -111,7 +113,14 @@ export default function ImagePanel({
         }
       })
       .catch((error) => {
-        if (mounted) failed(error);
+        if (!mounted) return;
+        if (error instanceof ApiError && error.status === 401) expired();
+        else
+          setCatalogLoadError(
+            error instanceof ApiError
+              ? error.message
+              : copy.catalogRefreshFailed,
+          );
       });
     void imageApi
       .history()
@@ -401,15 +410,16 @@ export default function ImagePanel({
             </label>
           )}
         </div>
-        <button
-          className="plain-button"
-          type="button"
-          onClick={() => {
-            void imageApi.refresh().then(setCatalog).catch(failed);
+        <CatalogRefresh
+          catalog={catalog}
+          refresh={imageApi.refresh}
+          onRefresh={(next) => {
+            setCatalog(next);
+            setCatalogLoadError("");
+            setModelId((current) => current || next.models[0]?.id || "");
           }}
-        >
-          {copy.refreshModels}
-        </button>
+          expired={expired}
+        />
         {details && !details.endpoints.length && (
           <p role="alert">{copy.imageNoProviders}</p>
         )}
@@ -431,9 +441,9 @@ export default function ImagePanel({
             {copy.imageReferenceUnsupported}
           </p>
         )}
-        {error && (
+        {(error || catalogLoadError) && (
           <p role="alert" className="error">
-            {error}
+            {error || catalogLoadError}
           </p>
         )}
         {warning && <p role="status">{warning}</p>}

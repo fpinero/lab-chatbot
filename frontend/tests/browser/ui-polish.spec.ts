@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { CatalogInfo, ImageCatalogInfo } from "../../src/lib/api";
 
 async function signIn(page: Page) {
   await page.goto("/");
@@ -8,6 +9,188 @@ async function signIn(page: Page) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
+
+test("favorites persist without changing startup selection and catalog refresh recovers with local feedback", async ({
+  page,
+}, info) => {
+  const generations: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      ["/api/runs", "/api/comparisons", "/api/images/jobs"].includes(
+        new URL(request.url()).pathname,
+      )
+    )
+      generations.push(request.url());
+  });
+  let chatCatalog!: CatalogInfo;
+  let imageCatalog!: ImageCatalogInfo;
+  await page.route("**/api/models", async (route) => {
+    const response = await route.fetch();
+    chatCatalog = { ...(await response.json()), refresh_after_seconds: 1 };
+    await route.fulfill({ response, json: chatCatalog });
+  });
+  await page.route("**/api/images/models", async (route) => {
+    const response = await route.fetch();
+    imageCatalog = { ...(await response.json()), refresh_after_seconds: 1 };
+    await route.fulfill({ response, json: imageCatalog });
+  });
+  let attempts = 0;
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/models/refresh", async (route) => {
+    attempts += 1;
+    if (attempts === 1) {
+      await pending;
+      await route.fulfill({
+        status: 503,
+        headers: { "Retry-After": "2" },
+        json: { error: { message: "Synthetic catalog refresh failure" } },
+      });
+    } else if (attempts === 2) {
+      await route.fulfill({
+        status: 429,
+        headers: { "Retry-After": "1" },
+        json: { error: { message: "Synthetic catalog rate limit" } },
+      });
+    } else {
+      await route.fulfill({
+        json: {
+          ...chatCatalog,
+          fetched_at: chatCatalog.fetched_at + 180,
+          refresh_after_seconds: 2,
+        },
+      });
+    }
+  });
+  await signIn(page);
+  const picker = page.getByRole("combobox", { name: "Model", exact: true });
+  await picker.fill("clear");
+  await page.getByRole("option", { name: /Local clear/ }).click();
+  await page.getByText("Options", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "Add to favorites", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Remove from favorites", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await picker.click();
+  await expect(
+    page
+      .getByRole("listbox", { name: "Model", exact: true })
+      .getByRole("option")
+      .first(),
+  ).toContainText("Favorites: Local clear");
+  await picker.press("Escape");
+  await page.reload();
+  await expect(picker).toHaveValue("Local steady");
+  await picker.fill("clear");
+  await page.getByRole("option", { name: /Local clear/ }).click();
+  const draft = page.getByLabel("Message", { exact: true });
+  await draft.fill("Keep this prompt while refreshing the catalog");
+  await page.getByText("Options", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Remove from favorites", exact: true }),
+  ).toBeVisible();
+  const options = page.locator(".composer-options-content").first();
+  const control = options.locator(".catalog-refresh");
+  const refresh = control.getByRole("button", {
+    name: "Refresh models",
+    exact: true,
+  });
+  const timestamp = await options
+    .locator("p")
+    .filter({ hasText: "Refreshed:" })
+    .textContent();
+  await expect(refresh).toBeEnabled();
+  await refresh.click();
+  await expect(refresh).toHaveText("Refreshing models...");
+  await refresh.evaluate((button: HTMLButtonElement) => button.click());
+  expect(attempts).toBe(1);
+  release();
+  await expect(control.getByRole("alert")).toHaveText(
+    "Synthetic catalog refresh failure",
+  );
+  await expect(page.locator(".chat-composer > .error")).toHaveCount(0);
+  await expect(refresh).toBeEnabled();
+  await refresh.click();
+  await expect(control.getByRole("alert")).toHaveCount(0);
+  await expect(control.getByRole("status")).toContainText("refreshed recently");
+  await expect(refresh).toBeEnabled();
+  await expect(control.getByRole("status")).toHaveCount(0);
+  await refresh.click();
+  await expect(control.getByRole("status")).toHaveText("Models refreshed.");
+  await expect(
+    options.locator("p").filter({ hasText: "Refreshed:" }),
+  ).not.toHaveText(timestamp!);
+  await expect(picker).toHaveValue("Local clear");
+  await expect(draft).toHaveValue(
+    "Keep this prompt while refreshing the catalog",
+  );
+  await page.screenshot({
+    path: `../artifacts/catalog-refresh-${info.project.name}.png`,
+  });
+  await page
+    .getByRole("button", { name: "Remove from favorites", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Add to favorites", exact: true }),
+  ).toBeVisible();
+  let imageAttempts = 0;
+  await page.route("**/api/images/models/refresh", async (route) => {
+    imageAttempts += 1;
+    if (imageAttempts === 1)
+      await route.fulfill({
+        status: 429,
+        headers: { "Retry-After": "1" },
+        json: { error: { message: "Synthetic image catalog limit" } },
+      });
+    else if (imageAttempts === 2)
+      await route.fulfill({
+        status: 503,
+        headers: { "Retry-After": "1" },
+        json: { error: { message: "Synthetic image catalog failure" } },
+      });
+    else
+      await route.fulfill({
+        json: {
+          ...imageCatalog,
+          fetched_at: imageCatalog.fetched_at + 180,
+          refresh_after_seconds: 1,
+        },
+      });
+  });
+  await page.getByLabel("Mode", { exact: true }).selectOption("images");
+  const region = page.getByRole("region", { name: "Image", exact: true });
+  const imageDraft = region.getByLabel("Image prompt", { exact: true });
+  await imageDraft.fill("Keep this image prompt");
+  const imageControl = region.locator(".catalog-refresh");
+  const imageRefresh = imageControl.getByRole("button", {
+    name: "Refresh models",
+    exact: true,
+  });
+  await expect(imageRefresh).toBeEnabled();
+  await imageRefresh.click();
+  await expect(imageControl.getByRole("status")).toContainText(
+    "refreshed recently",
+  );
+  await expect(imageRefresh).toBeEnabled();
+  await imageRefresh.click();
+  await expect(imageControl.getByRole("alert")).toHaveText(
+    "Synthetic image catalog failure",
+  );
+  await expect(imageRefresh).toBeEnabled();
+  await imageRefresh.click();
+  await expect(imageControl.getByRole("alert")).toHaveCount(0);
+  await expect(imageControl.getByRole("status")).toHaveText(
+    "Models refreshed.",
+  );
+  await expect(imageDraft).toHaveValue("Keep this image prompt");
+  await page.unrouteAll({ behavior: "wait" });
+  expect(generations).toHaveLength(0);
+});
 
 test("attachment help keeps the composer clean and opens with touch or keyboard without submitting", async ({
   page,

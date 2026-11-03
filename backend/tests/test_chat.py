@@ -207,6 +207,59 @@ def test_catalog_stale_and_refresh_throttle(settings_factory: Callable[..., Sett
         assert stale["stale"] is True and stale["models"] == catalog["models"]
 
 
+def test_catalog_refresh_wait_failure_and_recovery(
+    settings_factory: Callable[..., Settings],
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    now = [datetime(2026, 7, 1, tzinfo=UTC)]
+    provider = ControlledProvider()
+    with TestClient(
+        create_app(settings_factory(), chat_provider=provider, clock=lambda: now[0])
+    ) as client:
+        headers = signin(client)
+        first = client.get("/api/models").json()
+        assert first["refresh_after_seconds"] == 60
+        now[0] += timedelta(seconds=17)
+        limited = client.post("/api/models/refresh", headers=headers)
+        assert limited.status_code == 429 and limited.headers["Retry-After"] == "43"
+        assert client.get("/api/models").json()["refresh_after_seconds"] == 43
+        now[0] += timedelta(seconds=43)
+        provider.catalog_fails = True
+        failed = client.post("/api/models/refresh", headers=headers)
+        assert failed.status_code == 503 and failed.headers["Retry-After"] == "60"
+        assert failed.json()["error"]["code"] == "catalog_refresh_failed"
+        cached = client.get("/api/models").json()
+        assert cached["models"] == first["models"] and cached["fetched_at"] == first["fetched_at"]
+        assert cached["refresh_after_seconds"] == 60 and cached["stale"] is False
+        provider.catalog_fails = False
+        now[0] += timedelta(seconds=60)
+        recovered = client.post("/api/models/refresh", headers=headers)
+        assert recovered.status_code == 200
+        assert recovered.json()["fetched_at"] > first["fetched_at"]
+        assert recovered.json()["refresh_after_seconds"] == 60
+        assert provider.calls == []
+
+
+def test_favorites_survive_signin_and_do_not_change_catalog_order(
+    settings_factory: Callable[..., Settings],
+) -> None:
+    with TestClient(create_app(settings_factory())) as client:
+        headers = signin(client)
+        models = client.get("/api/models").json()["models"]
+        favorite = models[1]["id"]
+        assert (
+            client.patch(
+                "/api/preferences", headers=headers, json={"favorites": [favorite]}
+            ).status_code
+            == 200
+        )
+        client.post("/api/auth/logout", headers=headers)
+        signin(client)
+        assert client.get("/api/preferences").json()["favorites"] == [favorite]
+        assert client.get("/api/models").json()["models"][0]["id"] == models[0]["id"]
+
+
 def test_history_export_deletion_and_idempotency_tombstone(
     settings_factory: Callable[..., Settings],
 ) -> None:
