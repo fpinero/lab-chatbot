@@ -24,7 +24,7 @@ import { useEnterToSend } from "../../lib/useEnterToSend";
 import RunCard from "./RunCard";
 import SavedPrompt from "./SavedPrompt";
 import ModelPicker from "./ModelPicker";
-import CatalogRefresh from "./CatalogRefresh";
+import CatalogRefresh, { useCatalogRefresh } from "./CatalogRefresh";
 import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
@@ -122,6 +122,16 @@ export default function Workspace({
         model.id === modelId && !model.input_modalities.includes("image"),
     );
   const selected = catalog?.models.find((model) => model.id === modelId);
+  const catalogRefresh = useCatalogRefresh({
+    catalog,
+    refresh: chatApi.refreshCatalog,
+    onRefresh: (next) => {
+      setCatalog(next);
+      setCatalogLoadError("");
+      setModelId((current) => current || next.models[0]?.id || "");
+    },
+    expired,
+  });
 
   useEffect(() => {
     if (folded) writeRef.current?.focus({ preventScroll: true });
@@ -908,18 +918,7 @@ export default function Workspace({
                           ? copy.removeFavorite
                           : copy.addFavorite}
                     </button>
-                    <CatalogRefresh
-                      catalog={catalog}
-                      refresh={chatApi.refreshCatalog}
-                      onRefresh={(next) => {
-                        setCatalog(next);
-                        setCatalogLoadError("");
-                        setModelId(
-                          (current) => current || next.models[0]?.id || "",
-                        );
-                      }}
-                      expired={expired}
-                    />
+                    <CatalogRefresh control={catalogRefresh} />
                   </div>
                   <p className="preference-hint">{copy.favoritesHelp}</p>
                   <div className="advanced-grid">

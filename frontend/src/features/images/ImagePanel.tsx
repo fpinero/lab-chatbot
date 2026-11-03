@@ -15,7 +15,7 @@ import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
 import SavedPrompt from "../chat/SavedPrompt";
-import CatalogRefresh from "../chat/CatalogRefresh";
+import CatalogRefresh, { useCatalogRefresh } from "../chat/CatalogRefresh";
 
 const active = (job: MediaJobInfo) =>
   ["queued", "submitting", "running", "cancel_requested"].includes(job.status);
@@ -96,6 +96,16 @@ export default function ImagePanel({
   };
   const fingerprint = JSON.stringify(input);
   const quote = quoted?.fingerprint === fingerprint ? quoted.value : null;
+  const catalogRefresh = useCatalogRefresh({
+    catalog,
+    refresh: imageApi.refresh,
+    onRefresh: (next) => {
+      setCatalog(next);
+      setCatalogLoadError("");
+      setModelId((current) => current || next.models[0]?.id || "");
+    },
+    expired,
+  });
 
   function failed(error: unknown) {
     if (error instanceof ApiError && error.status === 401) expired();
@@ -410,16 +420,7 @@ export default function ImagePanel({
             </label>
           )}
         </div>
-        <CatalogRefresh
-          catalog={catalog}
-          refresh={imageApi.refresh}
-          onRefresh={(next) => {
-            setCatalog(next);
-            setCatalogLoadError("");
-            setModelId((current) => current || next.models[0]?.id || "");
-          }}
-          expired={expired}
-        />
+        <CatalogRefresh control={catalogRefresh} />
         {details && !details.endpoints.length && (
           <p role="alert">{copy.imageNoProviders}</p>
         )}

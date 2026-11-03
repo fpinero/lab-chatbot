@@ -109,6 +109,16 @@ test("favorites persist without changing startup selection and catalog refresh r
   await expect(refresh).toHaveText("Refreshing models...");
   await refresh.evaluate((button: HTMLButtonElement) => button.click());
   expect(attempts).toBe(1);
+  if (info.project.use.hasTouch)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("button", { name: "New conversation", exact: true })
+    .click();
+  await expect(draft).toHaveValue("");
+  await draft.fill("Keep this prompt while refreshing the catalog");
+  await page.getByText("Options", { exact: true }).click();
+  await expect(refresh).toHaveText("Refreshing models...");
+  expect(attempts).toBe(1);
   release();
   await expect(control.getByRole("alert")).toHaveText(
     "Synthetic catalog refresh failure",

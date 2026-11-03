@@ -2,7 +2,15 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "../../lib/api";
 import { copy } from "../../lib/copy";
 
-export default function CatalogRefresh<
+type CatalogRefreshState = {
+  pending: boolean;
+  remaining: number;
+  feedback: "" | "updated" | "limited" | "failed";
+  failure: string;
+  reload: () => Promise<void>;
+};
+
+export function useCatalogRefresh<
   T extends { refresh_after_seconds?: number },
 >({
   catalog,
@@ -14,7 +22,7 @@ export default function CatalogRefresh<
   refresh: () => Promise<T>;
   onRefresh: (catalog: T) => void;
   expired: () => void;
-}) {
+}): CatalogRefreshState {
   const [pending, setPending] = useState(false);
   const [remaining, setRemaining] = useState(0);
   const [until, setUntil] = useState(0);
@@ -25,7 +33,6 @@ export default function CatalogRefresh<
   const deadline = useRef(0);
   const inFlight = useRef(false);
   const mounted = useRef(false);
-  const waitId = useId();
   function wait(seconds: number) {
     const delay = Number.isFinite(seconds)
       ? Math.max(0, Math.min(3600, seconds))
@@ -92,6 +99,16 @@ export default function CatalogRefresh<
       if (mounted.current) setPending(false);
     }
   }
+  return { pending, remaining, feedback, failure, reload };
+}
+
+export default function CatalogRefresh({
+  control,
+}: {
+  control: CatalogRefreshState;
+}) {
+  const { pending, remaining, feedback, failure, reload } = control;
+  const waitId = useId();
   return (
     <div className="catalog-refresh">
       <button
