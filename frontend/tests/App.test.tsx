@@ -116,6 +116,45 @@ function mockRequests(
     });
 }
 
+test("a failed initial catalog load can recover without keeping its old error or replacing the draft", async () => {
+  const fetcher = mockRequests(true);
+  const original = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation((input, options) => {
+    if (String(input).endsWith("/models"))
+      return Promise.resolve(
+        reply({ error: { message: "Initial catalog unavailable" } }, 503),
+      );
+    if (String(input).endsWith("/models/refresh"))
+      return Promise.resolve(
+        reply({
+          models: [model],
+          fetched_at: 2,
+          stale: false,
+          ranking: "Synthetic catalog",
+          refresh_after_seconds: 0,
+        }),
+      );
+    return original(input, options);
+  });
+  render(<App />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Initial catalog unavailable",
+  );
+  const input = screen.getByLabelText("Message", { exact: true });
+  await userEvent.type(input, "Preserve my unsent prompt");
+  await userEvent.click(screen.getByText("Options", { exact: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Refresh models" }));
+  expect(await screen.findByText("Models refreshed.")).toBeVisible();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue(
+    "Local steady",
+  );
+  expect(input).toHaveValue("Preserve my unsent prompt");
+  expect(
+    fetcher.mock.calls.some(([url]) => String(url).endsWith("/runs")),
+  ).toBe(false);
+});
+
 test("provider balance shows the shared key budget and refresh never generates", async () => {
   const fetcher = mockRequests(true, false, true);
   render(<App />);

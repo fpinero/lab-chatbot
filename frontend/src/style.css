@@ -1248,6 +1248,25 @@ button:disabled {
 .composer-options-content .upload-limits {
   font-size: 11px;
 }
+.model-preferences {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+.catalog-refresh {
+  flex: 1;
+  min-width: 160px;
+}
+.catalog-refresh p,
+.preference-hint {
+  margin: 6px 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.preference-hint {
+  color: var(--muted);
+}
 .attachment-feedback {
   max-height: 18dvh;
   overflow-y: auto;

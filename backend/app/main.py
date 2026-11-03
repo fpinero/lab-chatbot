@@ -155,7 +155,9 @@ def create_app(
     )
     provider: PreviewProvider = MockProvider()
 
-    def error(request: Request, status: int, code: str, message: str) -> JSONResponse:
+    def error(
+        request: Request, status: int, code: str, message: str, retry_after: int | None = None
+    ) -> JSONResponse:
         response = JSONResponse(
             status_code=status,
             content={
@@ -167,8 +169,8 @@ def create_app(
                 }
             },
         )
-        if status == 429:
-            response.headers["Retry-After"] = "300"
+        if retry_after is not None or status == 429:
+            response.headers["Retry-After"] = str(retry_after if retry_after is not None else 300)
         return response
 
     app.add_middleware(BodyLimitMiddleware, upload_maximum=config.max_upload_total_bytes + 262144)
@@ -189,7 +191,7 @@ def create_app(
                     )
             response = await call_next(request)
         except AuthError as exc:
-            response = error(request, exc.status, exc.code, exc.message)
+            response = error(request, exc.status, exc.code, exc.message, exc.retry_after)
         except Exception:
             response = error(request, 500, "internal_error", "The request could not be completed.")
         response.headers.update(
@@ -211,7 +213,7 @@ def create_app(
 
     @app.exception_handler(AuthError)
     async def auth_error(request: Request, exc: AuthError) -> JSONResponse:
-        return error(request, exc.status, exc.code, exc.message)
+        return error(request, exc.status, exc.code, exc.message, exc.retry_after)
 
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse:

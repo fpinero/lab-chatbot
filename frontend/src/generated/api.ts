@@ -659,6 +659,11 @@ export interface components {
       stale: boolean;
       /** Ranking */
       ranking: string;
+      /**
+       * Refresh After Seconds
+       * @default 0
+       */
+      refresh_after_seconds: number;
     };
     /** ComparisonInfo */
     ComparisonInfo: {
@@ -795,6 +800,11 @@ export interface components {
       stale: boolean;
       /** Ranking */
       ranking: string;
+      /**
+       * Refresh After Seconds
+       * @default 0
+       */
+      refresh_after_seconds: number;
     };
     /** ImageEndpoint */
     ImageEndpoint: {

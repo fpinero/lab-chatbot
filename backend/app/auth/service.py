@@ -23,8 +23,11 @@ def digest(value: str) -> str:
 
 
 class AuthError(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
+    def __init__(
+        self, status: int, code: str, message: str, retry_after: int | None = None
+    ) -> None:
         self.status, self.code, self.message = status, code, message
+        self.retry_after = retry_after
 
 
 class AuthService:

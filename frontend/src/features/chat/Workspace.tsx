@@ -24,6 +24,7 @@ import { useEnterToSend } from "../../lib/useEnterToSend";
 import RunCard from "./RunCard";
 import SavedPrompt from "./SavedPrompt";
 import ModelPicker from "./ModelPicker";
+import CatalogRefresh from "./CatalogRefresh";
 import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
@@ -65,6 +66,7 @@ export default function Workspace({
   const [uploading, setUploading] = useState(false);
   const [compareReplay, setCompareReplay] = useState<RunInfo | null>(null);
   const [catalog, setCatalog] = useState<CatalogInfo | null>(null);
+  const [catalogLoadError, setCatalogLoadError] = useState("");
   const [history, setHistory] = useState<ConversationInfo[]>([]);
   const [conversation, setConversation] = useState<ConversationInfo | null>(
     null,
@@ -72,6 +74,8 @@ export default function Workspace({
   const [answers, setAnswers] = useState<RunInfo[]>([]);
   const [modelId, setModelId] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [savingFavorite, setSavingFavorite] = useState(false);
+  const favoritePending = useRef(false);
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<{
@@ -210,15 +214,26 @@ export default function Workspace({
   useEffect(() => {
     let mounted = true;
     void Promise.all([
-      chatApi.catalog(),
+      chatApi.catalog().catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 401) throw error;
+        if (mounted)
+          setCatalogLoadError(
+            error instanceof ApiError
+              ? error.message
+              : copy.catalogRefreshFailed,
+          );
+        return null;
+      }),
       chatApi.history(),
       chatApi.favorites(),
       chatApi.usage(),
     ])
       .then(([models, conversations, preferences, spend]) => {
         if (!mounted) return;
-        setCatalog(models);
-        setModelId(models.models[0]?.id ?? "");
+        if (models) {
+          setCatalog(models);
+          setModelId(models.models[0]?.id ?? "");
+        }
         setHistory(conversations);
         setFavorites(preferences.favorites);
         applyUsage(spend);
@@ -463,6 +478,9 @@ export default function Workspace({
     }
   }
   async function favorite() {
+    if (favoritePending.current || !selected) return;
+    favoritePending.current = true;
+    setSavingFavorite(true);
     const next = favorites.includes(modelId)
       ? favorites.filter((id) => id !== modelId)
       : [...favorites, modelId];
@@ -470,6 +488,9 @@ export default function Workspace({
       setFavorites((await chatApi.saveFavorites(next)).favorites);
     } catch (error) {
       failed(error);
+    } finally {
+      favoritePending.current = false;
+      setSavingFavorite(false);
     }
   }
 
@@ -776,9 +797,9 @@ export default function Workspace({
           <div ref={endRef} />
         </div>
         <div hidden={mode !== "chat"} className="chat-composer">
-          {(error || notice) && (
+          {(error || notice || catalogLoadError) && (
             <p role="alert" className="error">
-              {error || notice}
+              {error || notice || catalogLoadError}
             </p>
           )}
           {warning && (
@@ -874,25 +895,33 @@ export default function Workspace({
                   <div className="model-preferences">
                     {" "}
                     <button
+                      type="button"
                       className="plain-button"
                       aria-pressed={favorites.includes(modelId)}
                       onClick={() => void favorite()}
-                      disabled={!selected}
+                      disabled={!selected || savingFavorite}
+                      aria-busy={savingFavorite}
                     >
-                      {copy.favorite}
+                      {savingFavorite
+                        ? copy.savingFavorite
+                        : favorites.includes(modelId)
+                          ? copy.removeFavorite
+                          : copy.addFavorite}
                     </button>
-                    <button
-                      className="plain-button"
-                      onClick={() => {
-                        void chatApi
-                          .refreshCatalog()
-                          .then(setCatalog)
-                          .catch(failed);
+                    <CatalogRefresh
+                      catalog={catalog}
+                      refresh={chatApi.refreshCatalog}
+                      onRefresh={(next) => {
+                        setCatalog(next);
+                        setCatalogLoadError("");
+                        setModelId(
+                          (current) => current || next.models[0]?.id || "",
+                        );
                       }}
-                    >
-                      {copy.refreshModels}
-                    </button>
+                      expired={expired}
+                    />
                   </div>
+                  <p className="preference-hint">{copy.favoritesHelp}</p>
                   <div className="advanced-grid">
                     <label>
                       {copy.systemPrompt}

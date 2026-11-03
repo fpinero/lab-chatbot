@@ -10,6 +10,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string = copy.chatFailure,
+    public retryAfterSeconds?: number,
   ) {
     super(message);
   }
@@ -40,7 +41,14 @@ export async function request<T>(
     } catch {
       /* An interrupted response keeps the generic message. */
     }
-    throw new ApiError(response.status, message);
+    const retryAfter = Number(response.headers.get("Retry-After"));
+    throw new ApiError(
+      response.status,
+      message,
+      Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(3600, Math.ceil(retryAfter))
+        : undefined,
+    );
   }
   return response.status === 204
     ? (undefined as T)
