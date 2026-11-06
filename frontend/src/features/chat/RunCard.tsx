@@ -50,6 +50,12 @@ export default function RunCard({
           <span>{copy.responseDetails}</span>
         </summary>
         <div className="answer-meta">
+          <span>
+            {copy.contextMode}:{" "}
+            {run.settings.without_context === true
+              ? copy.currentPromptOnly
+              : copy.conversationContext}
+          </span>
           {!inherited && (
             <span>
               {run.settings.estimate_kind === "provider_key_remainder"

@@ -1177,6 +1177,11 @@ export interface components {
        */
       system_prompt: string;
       /**
+       * Without Context
+       * @default false
+       */
+      without_context: boolean;
+      /**
        * Max Tokens
        * @default 2048
        */

@@ -84,6 +84,10 @@ export default function Workspace({
     files: AttachmentInfo[];
   } | null>(null);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [withoutContext, setWithoutContext] = useState(false);
+  const effectiveWithoutContext = editing
+    ? editing.run.settings.without_context === true
+    : withoutContext;
   const [maximum, setMaximum] = useState(2048);
   const [temperature, setTemperature] = useState("");
   const [usage, setUsage] = useState<UsageInfo | null>(null);
@@ -168,6 +172,7 @@ export default function Workspace({
     setDraft("");
     setFiles([]);
     setSystemPrompt("");
+    setWithoutContext(false);
     setMaximum(2048);
     setTemperature("");
     setError("");
@@ -351,7 +356,11 @@ export default function Workspace({
       setNavigationOpen(false);
       if (mobile && collapseAfterSend && !draft.trim() && !files.length)
         hideComposer();
-      const last = saved.runs.at(-1);
+      const last = saved.runs.filter((run) => !run.comparison_id).at(-1);
+      setWithoutContext(
+        last?.accounting_state !== "inherited" &&
+          last?.settings.without_context === true,
+      );
       if (last && typeof last.settings.system_prompt === "string")
         setSystemPrompt(last.settings.system_prompt);
     } catch (error) {
@@ -402,6 +411,9 @@ export default function Workspace({
           retryOf && typeof retryOf.settings.system_prompt === "string"
             ? retryOf.settings.system_prompt
             : systemPrompt,
+        without_context: retryOf
+          ? retryOf.settings.without_context === true
+          : withoutContext,
         attachment_ids: retryOf ? [] : files.map((item) => item.id),
         max_tokens: maximum,
         ...(selected.supported_parameters.includes("temperature") &&
@@ -879,6 +891,21 @@ export default function Workspace({
               onBusyChange={setUploading}
               options={
                 <>
+                  <label className="context-preference">
+                    <input
+                      type="checkbox"
+                      checked={effectiveWithoutContext}
+                      disabled={busy || !!editing}
+                      aria-describedby="context-mode-help"
+                      onChange={(event) =>
+                        setWithoutContext(event.target.checked)
+                      }
+                    />
+                    {copy.withoutPreviousContext}
+                  </label>
+                  <p id="context-mode-help" className="preference-hint">
+                    {editing ? copy.savedContextMode : copy.withoutContextHelp}
+                  </p>
                   {mobile && (
                     <label className="collapse-preference">
                       <input
@@ -1045,7 +1072,7 @@ export default function Workspace({
                   maxLength={24000}
                   placeholder={copy.messagePlaceholder}
                   enterKeyHint={enterToSend ? "send" : "enter"}
-                  aria-describedby="message-keyboard-help"
+                  aria-describedby={`message-keyboard-help${effectiveWithoutContext ? " message-context-help" : ""}`}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -1065,6 +1092,11 @@ export default function Workspace({
                 <p id="message-keyboard-help" className="sr-only">
                   {enterToSend ? copy.desktopEnterHelp : copy.touchEnterHelp}
                 </p>
+                {effectiveWithoutContext && (
+                  <p id="message-context-help" className="sr-only">
+                    {copy.withoutContextHelp}
+                  </p>
+                )}
               </form>
             </AttachmentPicker>
           </section>
@@ -1094,6 +1126,7 @@ export default function Workspace({
               setConversation(saved);
               setAnswers(saved.runs.filter((run) => !run.comparison_id));
               setMode("chat");
+              setWithoutContext(false);
               setCompareReplay(null);
               const last = saved.runs.at(-1);
               if (
