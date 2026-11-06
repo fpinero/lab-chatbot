@@ -199,7 +199,9 @@ def test_context_mode_validation_and_legacy_idempotency(settings_factory):
             max_tokens=128,
         )
         legacy_hash = digest(
-            json.dumps(body.model_dump(exclude={"without_context"}), sort_keys=True)
+            json.dumps(
+                body.model_dump(exclude={"without_context", "replace_prompt"}), sort_keys=True
+            )
         )
         saved = completed(client, headers, conversation, idempotency_key=key)
         with Session(app.state.auth.engine) as db:

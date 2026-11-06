@@ -447,6 +447,8 @@ class AttachmentService:
                     if len(suffixes) == len(documents) and suffix and text.endswith(suffix)
                     else "[Earlier input with attachments omitted.]"
                 )
+            if not text and message.get("_attachments"):
+                text = "[Earlier input with attachments omitted.]"
             result.append({"role": "user", "content": text})
         return result
 
@@ -501,7 +503,7 @@ class AttachmentService:
                                     },
                                 }
                             )
-                        else:
+                        elif part["text"]:
                             parts.append({"type": "text", "text": part["text"]})
                     content = parts
                 result.append({"role": message["role"], "content": content})

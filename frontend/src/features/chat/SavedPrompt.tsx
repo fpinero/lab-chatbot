@@ -8,6 +8,7 @@ export default function SavedPrompt({
   text: string;
   className?: string;
 }) {
+  if (!text) return null;
   return (
     <div className="saved-prompt">
       <div className={className}>{text}</div>

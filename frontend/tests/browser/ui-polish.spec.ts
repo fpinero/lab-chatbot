@@ -10,6 +10,87 @@ async function signIn(page: Page) {
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 
+test("attachment-only Chat applies System prompt and supports empty-text replay and edits", async ({
+  page,
+}, info) => {
+  await signIn(page);
+  const draft = page.getByLabel("Message", { exact: true });
+  const send = page.getByRole("button", { name: "Send message", exact: true });
+  const options = page.getByText("Options", { exact: true });
+  await expect(send).toBeDisabled();
+  await options.click();
+  await page
+    .locator(".chat-composer")
+    .getByRole("textbox", { name: "System prompt", exact: true })
+    .fill("Analyze only the current screenshot");
+  await page
+    .getByRole("checkbox", { name: "Send without previous context" })
+    .check();
+  await expect(send).toBeDisabled();
+  await draft.click();
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 24;
+    canvas.height = 16;
+    canvas.getContext("2d")!.fillRect(0, 0, 24, 16);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByLabel("Attach files to chat", { exact: true }).setInputFiles({
+    name: "image-only.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  });
+  await expect(send).toBeEnabled();
+  await expect(draft).toHaveValue("");
+  await page.screenshot({
+    path: `../artifacts/attachment-only-${info.project.name}.png`,
+  });
+  const request = page.waitForRequest(
+    (r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/runs",
+  );
+  await send.click();
+  expect((await request).postDataJSON()).toMatchObject({
+    prompt: "",
+    system_prompt: "Analyze only the current screenshot",
+    without_context: true,
+  });
+  await expect(
+    page.locator("article.answer").last().getByRole("status"),
+  ).toHaveText("Completed");
+  await expect(send).toBeDisabled();
+  await expect(page.locator(".compact-picker .attachment-item")).toHaveCount(0);
+  await expect(page.locator("article.answer .attachment-item")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Copy prompt", exact: true }),
+  ).toHaveCount(0);
+  await page.reload();
+  if (info.project.use.hasTouch)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("button", { name: "image-only.png", exact: true })
+    .click();
+  await expect(page.locator("article.answer")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Repeat with selected model", exact: true })
+    .click();
+  await expect(page.locator("article.answer")).toHaveCount(2);
+  await expect(
+    page.locator("article.answer").last().getByRole("status"),
+  ).toHaveText("Completed");
+  await page
+    .getByRole("button", { name: "Edit as a new run", exact: true })
+    .last()
+    .click();
+  await expect(draft).toHaveValue("");
+  await expect(send).toBeEnabled();
+  await send.click();
+  await expect(page.locator("article.answer")).toHaveCount(3);
+  await expect(
+    page.locator("article.answer").last().getByRole("status"),
+  ).toHaveText("Completed");
+  await expect(send).toBeDisabled();
+});
+
 test("independent Chat mode stays compact, restores from history and resets for a new conversation", async ({
   page,
 }, info) => {
