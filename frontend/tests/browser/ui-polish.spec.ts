@@ -10,6 +10,81 @@ async function signIn(page: Page) {
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 
+test("independent Chat mode stays compact, restores from history and resets for a new conversation", async ({
+  page,
+}, info) => {
+  await signIn(page);
+  const requests: { without_context: boolean; prompt: string }[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/runs"
+    )
+      requests.push(request.postDataJSON());
+  });
+  const draft = page.getByLabel("Message", { exact: true });
+  const options = page.getByText("Options", { exact: true });
+  const checkbox = page.getByRole("checkbox", {
+    name: "Send without previous context",
+  });
+  await options.click();
+  await expect(checkbox).not.toBeChecked();
+  const title = `Baseline context ${info.project.name}`;
+  await draft.fill(title);
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.locator("article.answer").last().getByRole("status"),
+  ).toHaveText("Completed");
+  await options.click();
+  await checkbox.check();
+  const bounds = (await checkbox.locator("..").boundingBox())!;
+  expect(bounds.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({
+    path: `../artifacts/independent-options-${info.project.name}.png`,
+  });
+  expect(requests).toHaveLength(1);
+  await draft.fill("Analyze only this unrelated input");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.locator("article.answer")).toHaveCount(2);
+  await expect(
+    page.locator("article.answer").last().getByRole("status"),
+  ).toHaveText("Completed");
+  expect(requests[1].without_context).toBe(true);
+  expect(requests[0].without_context).toBe(false);
+  await page.reload();
+  await expect(draft).toBeVisible();
+  if (info.project.use.hasTouch)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: title, exact: true }).click();
+  await expect(page.locator("article.answer")).toHaveCount(2);
+  await options.click();
+  await expect(checkbox).toBeChecked();
+  await checkbox.uncheck();
+  await draft.fill("Use saved textual context again");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(page.locator("article.answer")).toHaveCount(3);
+  await expect(
+    page.locator("article.answer").last().getByRole("status"),
+  ).toHaveText("Completed");
+  expect(requests[2].without_context).toBe(false);
+  await options.click();
+  await checkbox.check();
+  if (info.project.use.hasTouch)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("button", { name: "New conversation", exact: true })
+    .click();
+  await options.click();
+  await expect(checkbox).not.toBeChecked();
+  await expect(draft).toHaveValue("");
+  expect(requests).toHaveLength(3);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("favorites persist without changing startup selection and catalog refresh recovers with local feedback", async ({
   page,
 }, info) => {

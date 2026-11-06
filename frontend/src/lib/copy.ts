@@ -175,6 +175,13 @@ export const copy = {
   stopShort: "Stop",
   attachShort: "Attach",
   composerOptions: "Options",
+  withoutPreviousContext: "Send without previous context",
+  withoutContextHelp:
+    "Only the current prompt, its attachments and System prompt are sent. Turn off to use saved conversation history again.",
+  savedContextMode: "Saved inputs keep their original context mode.",
+  contextMode: "Context mode",
+  currentPromptOnly: "Current prompt only",
+  conversationContext: "Conversation",
   collapseAfterSend: "Collapse after sending on this device",
   collapseComposer: "Hide composer",
   writeMessage: "Write a message",

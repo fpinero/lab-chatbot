@@ -116,6 +116,137 @@ function mockRequests(
     });
 }
 
+test("independent Chat prompts are opt-in, preserve saved edit mode and reset with New conversation", async () => {
+  const fetcher = mockRequests(true);
+  const original = fetcher.getMockImplementation()!;
+  let count = 0;
+  fetcher.mockImplementation(async (input, options) => {
+    const response = await original(input, options);
+    if (String(input).endsWith("/runs")) {
+      const body = JSON.parse(options!.body as string);
+      return reply({
+        ...(await response.json()),
+        id: `saved-${++count}`,
+        turn: count,
+        prompt: body.prompt,
+        settings: { without_context: body.without_context },
+      });
+    }
+    return response;
+  });
+  render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  const showOptions = async () => {
+    const options = screen.getByText("Options", { exact: true });
+    if (!options.closest("details")!.open) await userEvent.click(options);
+  };
+  await showOptions();
+  const checkbox = screen.getByRole("checkbox", {
+    name: "Send without previous context",
+  });
+  expect(checkbox).not.toBeChecked();
+  await userEvent.click(checkbox);
+  await userEvent.type(input, "Independent question");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(input).toHaveValue(""));
+  await showOptions();
+  expect(checkbox).toBeChecked();
+  await userEvent.click(checkbox);
+  await userEvent.type(input, "Unsent contextual draft");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Edit as a new run" }),
+  );
+  await showOptions();
+  expect(checkbox).toBeChecked();
+  expect(checkbox).toBeDisabled();
+  expect(input).toHaveAccessibleDescription(
+    expect.stringContaining("Only the current prompt"),
+  );
+  await userEvent.clear(input);
+  await userEvent.type(input, "Edited independent question");
+  await userEvent.click(screen.getByRole("button", { name: "Send message" }));
+  await waitFor(() => expect(input).toHaveValue("Unsent contextual draft"));
+  await showOptions();
+  expect(checkbox).not.toBeChecked();
+  expect(checkbox).toBeEnabled();
+  const posts = fetcher.mock.calls.filter(([url]) =>
+    String(url).endsWith("/runs"),
+  );
+  expect(posts).toHaveLength(2);
+  expect(JSON.parse(posts[0][1]!.body as string)).toMatchObject({
+    without_context: true,
+  });
+  expect(JSON.parse(posts[1][1]!.body as string)).toMatchObject({
+    without_context: true,
+    retry_of: "saved-1",
+    prompt: "Edited independent question",
+  });
+  await userEvent.click(checkbox);
+  await userEvent.click(
+    screen.getByRole("button", { name: "New conversation" }),
+  );
+  await showOptions();
+  expect(
+    screen.getByRole("checkbox", { name: "Send without previous context" }),
+  ).not.toBeChecked();
+  expect(screen.getByLabelText("Message", { exact: true })).toHaveValue("");
+  expect(localStorage.length + sessionStorage.length).toBe(0);
+});
+
+test.each(["settled", "inherited"])(
+  "opening a saved %s input restores the appropriate Chat context mode",
+  async (accounting) => {
+    const fetcher = mockRequests(true);
+    const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation(async (input, options) => {
+      if (String(input).includes("/conversations?q="))
+        return reply([{ id: "saved-chat", title: "Saved independent chat" }]);
+      if (String(input).endsWith("/conversations/saved-chat")) {
+        const response = await original("/api/runs", { method: "POST" });
+        return reply({
+          id: "saved-chat",
+          title: "Saved independent chat",
+          runs: [
+            {
+              ...(await response.json()),
+              comparison_id: null,
+              accounting_state: accounting,
+              settings: {
+                without_context: true,
+                system_prompt: "Saved system",
+              },
+            },
+          ],
+        });
+      }
+      return original(input, options);
+    });
+    render(<App />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Saved independent chat" }),
+    );
+    await userEvent.click(screen.getByText("Options", { exact: true }));
+    const picker = within(
+      screen
+        .getByLabelText("Message", { exact: true })
+        .closest(".compact-picker") as HTMLElement,
+    );
+    await waitFor(() =>
+      expect(picker.getByLabelText("System prompt")).toHaveValue(
+        "Saved system",
+      ),
+    );
+    if (accounting === "settled")
+      expect(
+        screen.getByRole("checkbox", { name: "Send without previous context" }),
+      ).toBeChecked();
+    else
+      expect(
+        screen.getByRole("checkbox", { name: "Send without previous context" }),
+      ).not.toBeChecked();
+  },
+);
+
 test("a failed initial catalog load can recover without keeping its old error or replacing the draft", async () => {
   const fetcher = mockRequests(true);
   const original = fetcher.getMockImplementation()!;

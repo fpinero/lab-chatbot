@@ -6,6 +6,10 @@ The owner authorized staged deployment from integrated main, ahead of the remain
 
 The owner prioritized mobile reading space and model search ahead of the remaining modality work. The requested changes are implemented and verified locally at Pixel 10 dimensions (412 by 924). The owner subsequently authorized integration into main and deployment for physical-phone review, including a larger mobile mode selector.
 
+## Independent chat prompts
+
+- [ ] Integrate and deploy the locally verified independent-prompt option with exact-source container checks and encrypted recovery verification.
+
 ## External verification prerequisites
 
 - [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 13; physical platform/browser checks remain separate.

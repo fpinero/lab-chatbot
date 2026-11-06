@@ -69,6 +69,7 @@ class RunStart(BaseModel):
     idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_-]{16,80}$")
     prompt: str = Field(default="", max_length=24000)
     system_prompt: str = Field(default="", max_length=12000)
+    without_context: bool = Field(default=False, strict=True)
     max_tokens: int = Field(default=2048, ge=1, le=32768)
     temperature: float | None = Field(default=None, ge=0, le=2, allow_inf_nan=False)
     attachment_ids: list[str] = Field(default_factory=list, max_length=5)
@@ -81,6 +82,11 @@ class RunStart(BaseModel):
         if not self.retry_of and not self.prompt.strip():
             raise ValueError("A prompt is required.")
         return self
+
+    def request_hash(self) -> str:
+        # Preserve the canonical hash of requests made before this optional mode existed.
+        values = self.model_dump(exclude={"without_context"} if not self.without_context else set())
+        return digest(json.dumps(values, sort_keys=True))
 
 
 class RunInfo(BaseModel):
@@ -261,6 +267,51 @@ class RunService:
             return allowance
         return estimate
 
+    def history(
+        self, db: Session, owner: str, conversation_id: str, head: Run | None
+    ) -> list[dict[str, Any]]:
+        """Rebuild the active text branch without changing any saved request snapshot."""
+        messages: list[dict[str, Any]] = []
+        independent: list[Run] = []
+        seen: set[str] = set()
+        cursor = head
+        while cursor:
+            if (
+                cursor.id in seen
+                or cursor.owner_id != owner
+                or cursor.conversation_id != conversation_id
+            ):
+                raise AuthError(
+                    409,
+                    "context_unavailable",
+                    "Saved context is unavailable. Start a new conversation.",
+                )
+            seen.add(cursor.id)
+            settings = json.loads(cursor.settings_json)
+            if not settings.get("without_context", False):
+                messages = json.loads(cursor.snapshot_json)
+                if cursor.status == "succeeded":
+                    messages.append({"role": "assistant", "content": cursor.output})
+                else:
+                    messages = messages[:-1]
+                break
+            if cursor.status == "succeeded":
+                independent.append(cursor)
+            parent_id = settings.get("context_parent_run_id")
+            if parent_id is None:
+                break
+            cursor = db.get(Run, parent_id) if isinstance(parent_id, str) else None
+            if cursor is None:
+                raise AuthError(
+                    409,
+                    "context_unavailable",
+                    "Saved context is unavailable. Start a new conversation.",
+                )
+        for run in reversed(independent):
+            messages.extend(json.loads(run.snapshot_json))
+            messages.append({"role": "assistant", "content": run.output})
+        return self.attachments.text_history(db, owner, messages)
+
     def snapshot(
         self, db: Session, owner: str, body: RunStart, conversation: Conversation
     ) -> tuple[list[dict[str, Any]], str, list[str]]:
@@ -289,12 +340,9 @@ class RunService:
             messages = self.attachments.text_history(db, owner, messages[:-1])
             messages.append(self.attachments.turn(db, owner, prompt, turn_ids))
         else:
-            messages = json.loads(head.snapshot_json) if head else []
-            if head and head.status == "succeeded":
-                messages.append({"role": "assistant", "content": head.output})
-            elif head:
-                messages = messages[:-1]
-            messages = self.attachments.text_history(db, owner, messages)
+            messages = (
+                [] if body.without_context else self.history(db, owner, conversation.id, head)
+            )
             messages = [message for message in messages if message["role"] != "system"]
             if body.system_prompt:
                 messages.insert(0, {"role": "system", "content": body.system_prompt})
@@ -442,13 +490,16 @@ class RunService:
         comparison_id: str | None = None,
     ) -> Run:
         now = self.now()
-        request_hash = digest(json.dumps(body.model_dump(), sort_keys=True))
+        request_hash = body.request_hash()
         run_id = uuid4().hex
         key_remainder = (
             self.settings.spend_control == "provider"
             and not model.simulated
             and reservation == self.provider_remainder()
         )
+        conversation = db.get(Conversation, body.conversation_id)
+        if not conversation or conversation.owner_id != owner:
+            raise AuthError(404, "not_found", "Conversation not found.")
         settings = {
             "enqueued_at_ms": time.time_ns() // 1000000,
             "max_tokens": body.max_tokens,
@@ -456,6 +507,8 @@ class RunService:
             "model_name": model.name,
             "simulated": model.simulated,
             "retry_of": body.retry_of,
+            "without_context": body.without_context,
+            "context_parent_run_id": conversation.head_run_id,
             "system_prompt": messages[0]["content"]
             if messages and messages[0]["role"] == "system"
             else "",
@@ -476,6 +529,13 @@ class RunService:
             and not model.simulated
             else "approximate_upper",
         }
+        if body.retry_of:
+            original = db.get(Run, body.retry_of)
+            if not original or original.owner_id != owner:
+                raise AuthError(404, "not_found", "Original run not found.")
+            original_settings = json.loads(original.settings_json)
+            settings["without_context"] = original_settings.get("without_context", False)
+            settings["context_parent_run_id"] = original_settings.get("context_parent_run_id")
         run = Run(
             id=run_id,
             owner_id=owner,
@@ -583,7 +643,7 @@ class RunService:
             ) from None
 
     async def start(self, owner: str, body: RunStart) -> RunInfo:
-        request_hash = digest(json.dumps(body.model_dump(), sort_keys=True))
+        request_hash = body.request_hash()
         with Session(self.engine) as db:
             existing = self.existing(db, owner, body.idempotency_key, request_hash)
             if existing:
@@ -928,6 +988,7 @@ class RunService:
             settings = json.loads(source.settings_json)
             settings.update(
                 imported_from=source.id,
+                context_parent_run_id=None,
                 original_actual_microusd=original.actual_microusd,
                 source_created_at=source.created_at,
             )
