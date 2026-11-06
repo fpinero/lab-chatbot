@@ -1182,6 +1182,11 @@ export interface components {
        */
       without_context: boolean;
       /**
+       * Replace Prompt
+       * @default false
+       */
+      replace_prompt: boolean;
+      /**
        * Max Tokens
        * @default 2048
        */

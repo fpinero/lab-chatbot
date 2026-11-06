@@ -126,6 +126,9 @@ export default function Workspace({
         model.id === modelId && !model.input_modalities.includes("image"),
     );
   const selected = catalog?.models.find((model) => model.id === modelId);
+  const hasInput =
+    !!draft.trim() ||
+    (editing?.run.attachments ?? files).some((item) => item.status === "ready");
   const catalogRefresh = useCatalogRefresh({
     catalog,
     refresh: chatApi.refreshCatalog,
@@ -385,7 +388,7 @@ export default function Workspace({
       incompatible ||
       active ||
       !selected ||
-      ((!retryOf || editSubmission) && !draft.trim())
+      ((!retryOf || editSubmission) && !hasInput)
     )
       return;
     submitting.current = true;
@@ -397,7 +400,12 @@ export default function Workspace({
       const item =
         conversation ??
         (await chatApi.create(
-          (draft || retryOf?.prompt || copy.newConversation).slice(0, 80),
+          (
+            draft.trim() ||
+            retryOf?.prompt ||
+            files[0]?.display_name ||
+            copy.newConversation
+          ).slice(0, 80),
         ));
       focused.current = item.id;
       setConversation(item);
@@ -414,6 +422,7 @@ export default function Workspace({
         without_context: retryOf
           ? retryOf.settings.without_context === true
           : withoutContext,
+        replace_prompt: !!editSubmission,
         attachment_ids: retryOf ? [] : files.map((item) => item.id),
         max_tokens: maximum,
         ...(selected.supported_parameters.includes("temperature") &&
@@ -1048,7 +1057,7 @@ export default function Workspace({
                         busy ||
                         uploading ||
                         incompatible ||
-                        !draft.trim() ||
+                        !hasInput ||
                         !selected
                       }
                     >

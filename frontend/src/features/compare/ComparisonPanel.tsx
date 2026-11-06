@@ -225,6 +225,7 @@ export default function ComparisonPanel({
         retry_of: run.id,
         system_prompt: "",
         without_context: run.settings.without_context === true,
+        replace_prompt: false,
         verification_run: false,
         attachment_ids: [],
         max_tokens: Number(run.settings.max_tokens),

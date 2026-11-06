@@ -70,6 +70,7 @@ class RunStart(BaseModel):
     prompt: str = Field(default="", max_length=24000)
     system_prompt: str = Field(default="", max_length=12000)
     without_context: bool = Field(default=False, strict=True)
+    replace_prompt: bool = Field(default=False, strict=True)
     max_tokens: int = Field(default=2048, ge=1, le=32768)
     temperature: float | None = Field(default=None, ge=0, le=2, allow_inf_nan=False)
     attachment_ids: list[str] = Field(default_factory=list, max_length=5)
@@ -79,13 +80,19 @@ class RunStart(BaseModel):
 
     @model_validator(mode="after")
     def require_prompt(self) -> "RunStart":
-        if not self.retry_of and not self.prompt.strip():
-            raise ValueError("A prompt is required.")
+        if not self.retry_of and not self.prompt.strip() and not self.attachment_ids:
+            raise ValueError("A prompt or attachment is required.")
+        if self.replace_prompt and not self.retry_of:
+            raise ValueError("Prompt replacement requires a saved input.")
         return self
 
     def request_hash(self) -> str:
         # Preserve the canonical hash of requests made before this optional mode existed.
-        values = self.model_dump(exclude={"without_context"} if not self.without_context else set())
+        values = self.model_dump(
+            exclude={
+                name for name in ("without_context", "replace_prompt") if not getattr(self, name)
+            }
+        )
         return digest(json.dumps(values, sort_keys=True))
 
 
@@ -336,7 +343,9 @@ class RunService:
                 )
             turn_ids = json.loads(original.settings_json).get("turn_attachment_ids", [])
             messages = json.loads(original.snapshot_json)
-            prompt = prompt or original.prompt
+            prompt = prompt if body.replace_prompt else prompt or original.prompt
+            if not prompt and not turn_ids:
+                raise AuthError(422, "empty_input", "A prompt or attachment is required.")
             messages = self.attachments.text_history(db, owner, messages[:-1])
             messages.append(self.attachments.turn(db, owner, prompt, turn_ids))
         else:
