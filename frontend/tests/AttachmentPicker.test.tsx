@@ -235,6 +235,8 @@ test.each([
   "%s keeps existing attachments and draft",
   async (_, files, message) => {
     const { target, upload } = fixture({ initial: [image] });
+    // Flush the limits response and the native paste listener's dependent effect.
+    await act(async () => {});
     await waitFor(() =>
       expect(screen.getByText(/5 files/)).toBeInTheDocument(),
     );
