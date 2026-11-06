@@ -65,3 +65,7 @@
 ## 2026-11-03: Surface current CI evidence before integration
 
 - Confirm completed/success checks for the exact PR head in a separate read-only step before proposing a merge. A background watcher exiting successfully while its output stays in a local log does not expose that updated state to reviewers. Refresh the evidence when the last visible status was still in progress, and preserve the same verified-head merge guard.
+
+## 2026-11-06: Await dependent native event effects in React tests
+
+- Seeing asynchronous state in the DOM does not prove a native event listener registered by a dependent passive effect has been refreshed. Before immediately dispatching synthetic paste after initial limit loading, flush the response and effects with awaited act. Preserve behavioral assertions and avoid arbitrary sleeps or enlarged timeouts that leave the stale-listener race intact.
