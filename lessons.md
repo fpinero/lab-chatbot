@@ -69,3 +69,7 @@
 ## 2026-11-06: Await dependent native event effects in React tests
 
 - Seeing asynchronous state in the DOM does not prove a native event listener registered by a dependent passive effect has been refreshed. Before immediately dispatching synthetic paste after initial limit loading, flush the response and effects with awaited act. Preserve behavioral assertions and avoid arbitrary sleeps or enlarged timeouts that leave the stale-listener race intact.
+
+## 2026-11-06: Select visible controls across mounted modes
+
+- Chat and hidden Compare panels can both contain a System prompt label, and lazy mounting makes label-only browser selectors intermittently ambiguous. Use an accessible role with its exact name to target the visible textbox, preserving the same real UI interaction across device profiles.
