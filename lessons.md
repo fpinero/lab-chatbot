@@ -86,3 +86,7 @@
 ## 2026-11-09: Keep mode changes ordered with history restoration
 
 - Exact-main preparation caught a real navigation race before publication: the comparison recovery browser flow could choose Compare before an in-flight history response forced Chat, leaving the comparison hidden. A prior complete run and PR CI had passed because they did not force this timing. Keep the mode selector disabled while history is loading and verify that transition with a deliberately held history response. Do not hide the regression with larger timeouts or blind retries.
+
+## 2026-11-09: Await the initial catalog before testing manual refresh
+
+- A subsequent full run exposed an existing Image refresh test race. Its trace contained initial catalog GETs but no manual refresh POST: the test observed an enabled control before the initial catalog's synthetic cooldown effect finished, then clicked inside that cooldown. Await the initial selected image model and give that initial fixture zero cooldown, keeping the explicit manual 429/503 retry windows and every feedback/recovery assertion intact. This separates initialization from the manual-refresh behavior under test without changing runtime code, increasing timeouts or adding retries.
