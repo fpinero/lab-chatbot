@@ -73,3 +73,7 @@
 ## 2026-11-06: Select visible controls across mounted modes
 
 - Chat and hidden Compare panels can both contain a System prompt label, and lazy mounting makes label-only browser selectors intermittently ambiguous. Use an accessible role with its exact name to target the visible textbox, preserving the same real UI interaction across device profiles.
+
+## 2026-11-09: Validate instructions independently from attachments
+
+- A ready file supplies data rather than an instruction. Admit a Chat input only when it has specific prompt text, or ready attachments plus non-whitespace System prompt. Apply the same rule to frontend eligibility and server dispatch, and validate repeat/edit against the original saved system instructions rather than current draft settings. Rejected requests must not create a reservation or change stored inputs.

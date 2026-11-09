@@ -137,6 +137,23 @@ test("attachment-only Chat applies System prompt and supports empty-text replay 
     buffer: Buffer.from(png, "base64"),
   });
   await expect(send).toBeEnabled();
+  await options.click();
+  const system = page.getByRole("textbox", {
+    name: "System prompt",
+    exact: true,
+  });
+  await system.fill("");
+  await expect(send).toBeDisabled();
+  await system.fill(" \n\t");
+  await expect(send).toBeDisabled();
+  await draft.fill("Analyze this screenshot");
+  await expect(send).toBeEnabled();
+  await draft.fill("");
+  await expect(send).toBeDisabled();
+  await options.click();
+  await system.fill("Analyze only the current screenshot");
+  await expect(send).toBeEnabled();
+  await draft.click();
   await expect(draft).toHaveValue("");
   await page.screenshot({
     path: `../artifacts/attachment-only-${info.project.name}.png`,
@@ -173,6 +190,11 @@ test("attachment-only Chat applies System prompt and supports empty-text replay 
   await expect(
     page.locator("article.answer").last().getByRole("status"),
   ).toHaveText("Completed");
+  await options.click();
+  await page
+    .getByRole("textbox", { name: "System prompt", exact: true })
+    .fill("");
+  await draft.click();
   await page
     .getByRole("button", { name: "Edit as a new run", exact: true })
     .last()
