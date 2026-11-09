@@ -80,8 +80,9 @@ class RunStart(BaseModel):
 
     @model_validator(mode="after")
     def require_prompt(self) -> "RunStart":
-        if not self.retry_of and not self.prompt.strip() and not self.attachment_ids:
-            raise ValueError("A prompt or attachment is required.")
+        if not self.retry_of and not self.prompt.strip():
+            if not self.attachment_ids or not self.system_prompt.strip():
+                raise ValueError("Write a prompt, or attach a file with a non-empty System prompt.")
         if self.replace_prompt and not self.retry_of:
             raise ValueError("Prompt replacement requires a saved input.")
         return self
@@ -344,8 +345,6 @@ class RunService:
             turn_ids = json.loads(original.settings_json).get("turn_attachment_ids", [])
             messages = json.loads(original.snapshot_json)
             prompt = prompt if body.replace_prompt else prompt or original.prompt
-            if not prompt and not turn_ids:
-                raise AuthError(422, "empty_input", "A prompt or attachment is required.")
             messages = self.attachments.text_history(db, owner, messages[:-1])
             messages.append(self.attachments.turn(db, owner, prompt, turn_ids))
         else:
@@ -356,6 +355,18 @@ class RunService:
             if body.system_prompt:
                 messages.insert(0, {"role": "system", "content": body.system_prompt})
             messages.append(self.attachments.turn(db, owner, prompt, turn_ids))
+        if not prompt and (
+            not turn_ids
+            or not any(
+                message["role"] == "system" and str(message["content"]).strip()
+                for message in messages
+            )
+        ):
+            raise AuthError(
+                422,
+                "missing_instructions",
+                "Write a prompt, or attach a file with a non-empty System prompt.",
+            )
         references = self.attachments.references(db, owner, messages)
         if len(references) > self.settings.max_upload_files:
             raise AuthError(

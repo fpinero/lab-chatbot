@@ -144,9 +144,17 @@ export default function Workspace({
         model.id === modelId && !model.input_modalities.includes("image"),
     );
   const selected = catalog?.models.find((model) => model.id === modelId);
+  const effectiveSystemPrompt = editing
+    ? typeof editing.run.settings.system_prompt === "string"
+      ? editing.run.settings.system_prompt
+      : ""
+    : systemPrompt;
   const hasInput =
     !!draft.trim() ||
-    (editing?.run.attachments ?? files).some((item) => item.status === "ready");
+    (!!effectiveSystemPrompt.trim() &&
+      (editing?.run.attachments ?? files).some(
+        (item) => item.status === "ready",
+      ));
   const catalogRefresh = useCatalogRefresh({
     catalog,
     refresh: chatApi.refreshCatalog,
@@ -1059,12 +1067,7 @@ export default function Workspace({
                     <label>
                       {copy.systemPrompt}
                       <textarea
-                        value={
-                          editing &&
-                          typeof editing.run.settings.system_prompt === "string"
-                            ? editing.run.settings.system_prompt
-                            : systemPrompt
-                        }
+                        value={effectiveSystemPrompt}
                         disabled={!!editing}
                         maxLength={12000}
                         rows={2}
