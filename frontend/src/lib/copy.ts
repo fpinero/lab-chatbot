@@ -274,6 +274,7 @@ export const copy = {
   closeNavigation: "Close navigation",
   hideSidebar: "Hide sidebar",
   showSidebar: "Show sidebar",
+  closeInfo: "Close",
   livePending: "Live generation is not available in this milestone.",
   appName: "Lab chatbot",
   subtitle: "Your model workspace",

@@ -497,6 +497,7 @@ test("mobile sidebar balance refresh receives taps, reports failure and survives
   await signIn(page);
   await page.getByRole("button", { name: "Open navigation" }).tap();
   const usage = page.getByRole("region", { name: "Usage", exact: true });
+  await usage.getByRole("button", { name: "Usage", exact: true }).tap();
   const button = usage.getByRole("button", {
     name: "Refresh balance",
     exact: true,
@@ -522,6 +523,7 @@ test("mobile sidebar balance refresh receives taps, reports failure and survives
   await expect(button).toHaveText("Refreshing balance...");
   await page.getByRole("button", { name: "Close navigation" }).tap();
   await page.getByRole("button", { name: "Open navigation" }).tap();
+  await usage.getByRole("button", { name: "Usage", exact: true }).tap();
   await expect(button).toBeDisabled();
   expect(reads).toBe(previous + 1);
   release();
