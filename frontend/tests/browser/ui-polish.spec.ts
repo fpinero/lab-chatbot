@@ -523,7 +523,7 @@ test("favorites persist without changing startup selection and catalog refresh r
   });
   await page.route("**/api/images/models", async (route) => {
     const response = await route.fetch();
-    imageCatalog = { ...(await response.json()), refresh_after_seconds: 1 };
+    imageCatalog = { ...(await response.json()), refresh_after_seconds: 0 };
     await route.fulfill({ response, json: imageCatalog });
   });
   let attempts = 0;
@@ -665,6 +665,9 @@ test("favorites persist without changing startup selection and catalog refresh r
   });
   await page.getByLabel("Mode", { exact: true }).selectOption("images");
   const region = page.getByRole("region", { name: "Image", exact: true });
+  await expect(
+    region.getByRole("combobox", { name: "Image model", exact: true }),
+  ).toHaveValue("mock/image-studio");
   const imageDraft = region.getByLabel("Image prompt", { exact: true });
   await imageDraft.fill("Keep this image prompt");
   const imageControl = region.locator(".catalog-refresh");

@@ -429,6 +429,7 @@ test("only the latest history selection can replace the composer and a missing S
   let input = screen.getByLabelText("Message", { exact: true });
   await userEvent.type(input, "Old draft");
   expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+  expect(screen.getByLabelText("Mode", { exact: true })).toBeDisabled();
   await userEvent.click(
     screen.getByRole("button", { name: "Second saved chat" }),
   );
@@ -441,6 +442,7 @@ test("only the latest history selection can replace the composer and a missing S
     expect(screen.getByLabelText("Attach files to chat")).toBeEnabled(),
   );
   input = screen.getByLabelText("Message", { exact: true });
+  expect(screen.getByLabelText("Mode", { exact: true })).toBeEnabled();
   await userEvent.click(screen.getByText("Options", { exact: true }));
   expect(screen.getByRole("textbox", { name: "System prompt" })).toHaveValue(
     "",
