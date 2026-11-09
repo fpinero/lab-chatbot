@@ -40,6 +40,14 @@ const price = (value: string) =>
   });
 const usd = (micro: number) => `$${(micro / 1_000_000).toFixed(6)}`;
 const collapsePreferenceKey = "lab-chatbot.mobile-collapse";
+const sidebarPreferenceKey = "lab-chatbot.sidebar-collapsed";
+function savedSidebarPreference() {
+  try {
+    return localStorage.getItem(sidebarPreferenceKey) === "true";
+  } catch {
+    return false;
+  }
+}
 function savedCollapsePreference() {
   try {
     return localStorage.getItem(collapsePreferenceKey) === "true";
@@ -97,10 +105,20 @@ export default function Workspace({
   >(null);
   const balanceRefreshPending = useRef(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    savedSidebarPreference,
+  );
+  const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarLogoRef = useRef<HTMLButtonElement>(null);
+  const desktopNavigationRef = useRef<HTMLButtonElement>(null);
+  const mobileNavigationRef = useRef<HTMLButtonElement>(null);
+  const navigationFocus = useRef<"sidebar" | "opener" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const mobile = useMobile();
+  const previousMobile = useRef(mobile);
+  const sidebarVisible = mobile ? navigationOpen : !sidebarCollapsed;
   const enterToSend = useEnterToSend();
   const [collapseAfterSend, setCollapseAfterSend] = useState(
     savedCollapsePreference,
@@ -139,6 +157,57 @@ export default function Workspace({
     },
     expired,
   });
+
+  function toggleNavigation() {
+    navigationFocus.current = sidebarVisible ? "opener" : "sidebar";
+    if (mobile) setNavigationOpen(!navigationOpen);
+    else {
+      const next = !sidebarCollapsed;
+      setSidebarCollapsed(next);
+      try {
+        localStorage.setItem(sidebarPreferenceKey, String(next));
+      } catch {
+        // Keep the control usable when browser storage is unavailable.
+      }
+    }
+  }
+  function closeNavigation() {
+    if (mobile && navigationOpen) {
+      navigationFocus.current = "opener";
+      setNavigationOpen(false);
+    }
+  }
+  useLayoutEffect(() => {
+    const target = navigationFocus.current;
+    navigationFocus.current = null;
+    if (target === "sidebar" && sidebarVisible) sidebarLogoRef.current?.focus();
+    if (target === "opener" && !sidebarVisible)
+      (mobile ? mobileNavigationRef : desktopNavigationRef).current?.focus();
+  }, [sidebarVisible, mobile]);
+  useEffect(() => {
+    if (previousMobile.current === mobile) return;
+    previousMobile.current = mobile;
+    setNavigationOpen(false);
+    if (
+      document.activeElement === document.body ||
+      sidebarRef.current?.contains(document.activeElement)
+    ) {
+      if (mobile) mobileNavigationRef.current?.focus();
+      else if (sidebarCollapsed) desktopNavigationRef.current?.focus();
+      else sidebarLogoRef.current?.focus();
+    }
+  }, [mobile, sidebarCollapsed]);
+  useEffect(() => {
+    if (!mobile || !navigationOpen) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      navigationFocus.current = "opener";
+      setNavigationOpen(false);
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [mobile, navigationOpen]);
 
   useEffect(() => {
     if (folded) writeRef.current?.focus({ preventScroll: true });
@@ -181,7 +250,7 @@ export default function Workspace({
     setError("");
     setWarning("");
     setMode("chat");
-    setNavigationOpen(false);
+    closeNavigation();
     setDraftVersion(conversationEpoch.current);
     followOutput.current = true;
     expandComposer();
@@ -342,7 +411,7 @@ export default function Workspace({
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
-  }, [draft, mode, folded]);
+  }, [draft, mode, folded, sidebarVisible]);
 
   async function open(item: ConversationInfo) {
     const epoch = conversationEpoch.current;
@@ -356,7 +425,7 @@ export default function Workspace({
       followOutput.current = true;
       setAnswers(saved.runs.filter((run) => !run.comparison_id));
       setCompareReplay(null);
-      setNavigationOpen(false);
+      closeNavigation();
       if (mobile && collapseAfterSend && !draft.trim() && !files.length)
         hideComposer();
       const last = saved.runs.filter((run) => !run.comparison_id).at(-1);
@@ -528,24 +597,35 @@ export default function Workspace({
   return (
     <div className="workspace chat-workspace">
       <aside
+        id="workspace-navigation"
+        ref={sidebarRef}
         className={`sidebar ${navigationOpen ? "is-open" : ""}`}
         aria-label={copy.navigation}
+        hidden={!mobile && sidebarCollapsed}
       >
-        <button
-          className="mobile-close"
-          onClick={() => setNavigationOpen(false)}
-        >
+        <button className="mobile-close" onClick={closeNavigation}>
           {copy.closeNavigation}
         </button>
-        <a className="brand" href="/">
-          <span className="brand-mark" aria-hidden="true">
-            L
-          </span>
+        <div className="brand">
+          <button
+            type="button"
+            className="sidebar-logo-toggle"
+            ref={sidebarLogoRef}
+            aria-label={copy.hideSidebar}
+            title={copy.hideSidebar}
+            aria-controls="workspace-navigation"
+            aria-expanded={sidebarVisible}
+            onClick={toggleNavigation}
+          >
+            <span className="brand-mark" aria-hidden="true">
+              L
+            </span>
+          </button>
           <span>
             <strong>{copy.appName}</strong>
             <small>{copy.subtitle}</small>
           </span>
-        </a>
+        </div>
         <button
           className="new-conversation"
           disabled={busy || uploading}
@@ -672,10 +752,28 @@ export default function Workspace({
       <main>
         <header>
           <button
+            type="button"
+            className="desktop-navigation-toggle sidebar-logo-toggle"
+            ref={desktopNavigationRef}
+            hidden={!sidebarCollapsed}
+            aria-label={copy.showSidebar}
+            title={copy.showSidebar}
+            aria-controls="workspace-navigation"
+            aria-expanded={false}
+            onClick={toggleNavigation}
+          >
+            <span className="brand-mark" aria-hidden="true">
+              L
+            </span>
+          </button>
+          <button
+            type="button"
+            ref={mobileNavigationRef}
             className="mobile-brand navigation-toggle"
             aria-label={copy.openNavigation}
+            aria-controls="workspace-navigation"
             aria-expanded={navigationOpen}
-            onClick={() => setNavigationOpen(!navigationOpen)}
+            onClick={toggleNavigation}
           >
             {copy.appName}
           </button>
