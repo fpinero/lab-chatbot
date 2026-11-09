@@ -186,12 +186,23 @@ test("attachments and independent comparison cards survive reload and continue i
   });
   await page.reload();
   await expect(page.getByLabel("Mode", { exact: true })).toBeVisible();
+  let releaseHistory!: () => void;
+  const historyPending = new Promise<void>((resolve) => {
+    releaseHistory = resolve;
+  });
+  await page.route("**/api/conversations/*", async (route) => {
+    await historyPending;
+    await route.continue();
+  });
   if (info.project.name === "mobile")
     await page.getByRole("button", { name: "Open navigation" }).click();
   await page
     .getByRole("navigation", { name: "Search history" })
     .getByRole("button", { name: prompt, exact: true })
     .click();
+  await expect(page.getByLabel("Mode", { exact: true })).toBeDisabled();
+  releaseHistory();
+  await expect(page.getByLabel("Mode", { exact: true })).toBeEnabled();
   await page.getByLabel("Mode", { exact: true }).selectOption("compare");
   await expect(
     results.getByRole("status").filter({ hasText: "Completed" }),

@@ -866,6 +866,7 @@ export default function Workspace({
           <select
             className="mode-select"
             id="mode"
+            disabled={opening}
             value={mode}
             onChange={(event) => {
               const selectedMode = event.target.value as

@@ -82,3 +82,7 @@
 
 - Cancelling an explicit edit restores its unrelated unsent draft, which is appropriate inside that conversation but inappropriate when selecting history. History navigation must clear editing, pending idempotency state, draft files/text and feedback atomically, then restore only the chosen conversation's settings. Otherwise historical files can influence Send eligibility and Attach remains locked in a mode the owner did not intend.
 - Increment the navigation epoch for every history request, not only New conversation, and disable submission/edit/upload while it is pending. Test reversed response order and reopening history from attachment-only editing. Keyed composer reconstruction replaces DOM nodes, so unit assertions must query the current controls after navigation instead of retaining detached elements.
+
+## 2026-11-09: Keep mode changes ordered with history restoration
+
+- Exact-main preparation caught a real navigation race before publication: the comparison recovery browser flow could choose Compare before an in-flight history response forced Chat, leaving the comparison hidden. A prior complete run and PR CI had passed because they did not force this timing. Keep the mode selector disabled while history is loading and verify that transition with a deliberately held history response. Do not hide the regression with larger timeouts or blind retries.
