@@ -115,6 +115,7 @@ export default function Workspace({
   const mobileNavigationRef = useRef<HTMLButtonElement>(null);
   const navigationFocus = useRef<"sidebar" | "opener" | null>(null);
   const [busy, setBusy] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const mobile = useMobile();
@@ -270,6 +271,7 @@ export default function Workspace({
     setAnswers([]);
     setCompareReplay(null);
     setEditing(null);
+    setOpening(false);
     setDraft("");
     setFiles([]);
     setSystemPrompt("");
@@ -443,29 +445,41 @@ export default function Workspace({
   }, [draft, mode, folded, sidebarVisible]);
 
   async function open(item: ConversationInfo) {
-    const epoch = conversationEpoch.current;
+    if (submitting.current || uploading) return;
+    const epoch = ++conversationEpoch.current;
+    setOpening(true);
     setError("");
     try {
       const saved = await chatApi.conversation(item.id);
       if (epoch !== conversationEpoch.current) return;
-      cancelEdit();
+      pending.current = null;
+      setEditing(null);
+      setDraft("");
+      setFiles([]);
+      setWarning("");
+      setMode("chat");
+      setDraftVersion(epoch);
       focused.current = saved.id;
       setConversation(saved);
       followOutput.current = true;
       setAnswers(saved.runs.filter((run) => !run.comparison_id));
       setCompareReplay(null);
       closeNavigation();
-      if (mobile && collapseAfterSend && !draft.trim() && !files.length)
-        hideComposer();
+      setCollapsed(false);
       const last = saved.runs.filter((run) => !run.comparison_id).at(-1);
       setWithoutContext(
         last?.accounting_state !== "inherited" &&
           last?.settings.without_context === true,
       );
-      if (last && typeof last.settings.system_prompt === "string")
-        setSystemPrompt(last.settings.system_prompt);
+      setSystemPrompt(
+        typeof last?.settings.system_prompt === "string"
+          ? last.settings.system_prompt
+          : "",
+      );
     } catch (error) {
       if (epoch === conversationEpoch.current) failed(error);
+    } finally {
+      if (epoch === conversationEpoch.current) setOpening(false);
     }
   }
 
@@ -482,6 +496,7 @@ export default function Workspace({
     }
     if (
       submitting.current ||
+      opening ||
       uploading ||
       incompatible ||
       active ||
@@ -928,14 +943,14 @@ export default function Workspace({
                   <>
                     <button
                       className="plain-button"
-                      disabled={busy || !!active || !!editing}
+                      disabled={busy || opening || !!active || !!editing}
                       onClick={() => void submit(undefined, run)}
                     >
                       {copy.repeat}
                     </button>
                     <button
                       className="plain-button"
-                      disabled={busy || !!active || !!editing}
+                      disabled={busy || opening || !!active || !!editing}
                       onClick={() => {
                         setEditing((previous) => ({
                           run,
@@ -951,7 +966,7 @@ export default function Workspace({
                     </button>
                     <button
                       className="plain-button"
-                      disabled={busy || !!active || !!editing}
+                      disabled={busy || opening || !!active || !!editing}
                       onClick={() => {
                         setCompareReplay(run);
                         setMode("compare");
@@ -1048,7 +1063,7 @@ export default function Workspace({
               onChange={setFiles}
               label={copy.attachChat}
               pasteTarget={messageRef}
-              disabled={busy || !!editing}
+              disabled={busy || opening || !!editing}
               onFailure={failed}
               onBusyChange={setUploading}
               options={
@@ -1203,6 +1218,7 @@ export default function Workspace({
                       aria-label={copy.send}
                       disabled={
                         busy ||
+                        opening ||
                         uploading ||
                         incompatible ||
                         !hasInput ||

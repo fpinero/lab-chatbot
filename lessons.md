@@ -77,3 +77,8 @@
 ## 2026-11-09: Validate instructions independently from attachments
 
 - A ready file supplies data rather than an instruction. Admit a Chat input only when it has specific prompt text, or ready attachments plus non-whitespace System prompt. Apply the same rule to frontend eligibility and server dispatch, and validate repeat/edit against the original saved system instructions rather than current draft settings. Rejected requests must not create a reservation or change stored inputs.
+
+## 2026-11-09: Separate history navigation from saved-input editing
+
+- Cancelling an explicit edit restores its unrelated unsent draft, which is appropriate inside that conversation but inappropriate when selecting history. History navigation must clear editing, pending idempotency state, draft files/text and feedback atomically, then restore only the chosen conversation's settings. Otherwise historical files can influence Send eligibility and Attach remains locked in a mode the owner did not intend.
+- Increment the navigation epoch for every history request, not only New conversation, and disable submission/edit/upload while it is pending. Test reversed response order and reopening history from attachment-only editing. Keyed composer reconstruction replaces DOM nodes, so unit assertions must query the current controls after navigation instead of retaining detached elements.
