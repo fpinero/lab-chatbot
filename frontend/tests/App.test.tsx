@@ -313,6 +313,150 @@ test.each(["settled", "inherited"])(
   },
 );
 
+test.each(["Saved image instructions", ""])(
+  "history selection clears editing and unrelated drafts while restoring system instructions %j",
+  async (systemPrompt) => {
+    const fetcher = mockRequests(true);
+    const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation(async (input, options) => {
+      const url = String(input);
+      if (url.includes("/conversations?q="))
+        return reply([{ id: "saved-image", title: "Saved image chat" }]);
+      if (url.endsWith("/models"))
+        return reply({
+          models: [{ ...model, input_modalities: ["text", "image"] }],
+          fetched_at: 1,
+          stale: false,
+          ranking: "Synthetic",
+        });
+      if (url.endsWith("/conversations/saved-image")) {
+        const response = await original("/api/runs", { method: "POST" });
+        return reply({
+          id: "saved-image",
+          title: "Saved image chat",
+          runs: [
+            {
+              ...(await response.json()),
+              prompt: "",
+              comparison_id: null,
+              settings: { system_prompt: systemPrompt, without_context: true },
+              attachments: [
+                {
+                  id: "saved-file",
+                  kind: "image",
+                  status: "ready",
+                  display_name: "saved.png",
+                  width: 10,
+                  height: 10,
+                  warnings: [],
+                },
+              ],
+            },
+          ],
+        });
+      }
+      return original(input, options);
+    });
+    render(<App />);
+    const history = await screen.findByRole("button", {
+      name: "Saved image chat",
+    });
+    await userEvent.click(history);
+    let input = screen.getByLabelText("Message", { exact: true });
+    let send = screen.getByRole("button", { name: "Send message" });
+    await waitFor(() => expect(send).toBeDisabled());
+    await userEvent.type(input, "Unrelated unsent draft");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Edit as a new run" }),
+    );
+    expect(screen.getByLabelText("Attach files to chat")).toBeDisabled();
+    await userEvent.click(history);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Cancel edit" }),
+      ).not.toBeInTheDocument(),
+    );
+    input = screen.getByLabelText("Message", { exact: true });
+    send = screen.getByRole("button", { name: "Send message" });
+    expect(input).toHaveValue("");
+    expect(send).toBeDisabled();
+    expect(screen.getByLabelText("Attach files to chat")).toBeEnabled();
+    expect(
+      input.closest(".compact-picker")!.querySelectorAll(".attachment-item"),
+    ).toHaveLength(0);
+    await userEvent.click(screen.getByText("Options", { exact: true }));
+    expect(screen.getByRole("textbox", { name: "System prompt" })).toHaveValue(
+      systemPrompt,
+    );
+    await userEvent.type(input, "A new specific request");
+    expect(send).toBeEnabled();
+    expect(
+      fetcher.mock.calls.filter(([url]) => String(url).endsWith("/runs")),
+    ).toHaveLength(0);
+  },
+);
+
+test("only the latest history selection can replace the composer and a missing System prompt clears old instructions", async () => {
+  const fetcher = mockRequests(true);
+  const original = fetcher.getMockImplementation()!;
+  const releases = new Map<string, (response: Response) => void>();
+  fetcher.mockImplementation((input, options) => {
+    const url = String(input);
+    if (url.includes("/conversations?q="))
+      return Promise.resolve(
+        reply([
+          { id: "first", title: "First saved chat" },
+          { id: "second", title: "Second saved chat" },
+        ]),
+      );
+    for (const id of ["first", "second"])
+      if (url.endsWith(`/conversations/${id}`))
+        return new Promise((resolve) => {
+          releases.set(id, resolve);
+        });
+    return original(input, options);
+  });
+  render(<App />);
+  await screen.findByRole("button", { name: "First saved chat" });
+  await userEvent.click(screen.getByText("Options", { exact: true }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "System prompt" }),
+    "Unrelated old system instructions",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "First saved chat" }),
+  );
+  let input = screen.getByLabelText("Message", { exact: true });
+  await userEvent.type(input, "Old draft");
+  expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Second saved chat" }),
+  );
+  await act(async () => {
+    releases.get("second")!(
+      reply({ id: "second", title: "Second saved chat", runs: [] }),
+    );
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText("Attach files to chat")).toBeEnabled(),
+  );
+  input = screen.getByLabelText("Message", { exact: true });
+  await userEvent.click(screen.getByText("Options", { exact: true }));
+  expect(screen.getByRole("textbox", { name: "System prompt" })).toHaveValue(
+    "",
+  );
+  await userEvent.type(input, "Keep this new draft");
+  await act(async () => {
+    releases.get("first")!(
+      reply({ id: "first", title: "First saved chat", runs: [] }),
+    );
+  });
+  expect(input).toHaveValue("Keep this new draft");
+  expect(
+    screen.getByRole("button", { name: "Second saved chat" }),
+  ).toHaveAttribute("aria-current", "page");
+});
+
 test("a failed initial catalog load can recover without keeping its old error or replacing the draft", async () => {
   const fetcher = mockRequests(true);
   const original = fetcher.getMockImplementation()!;

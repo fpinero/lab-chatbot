@@ -361,6 +361,69 @@ test("attachment-only Chat applies System prompt and supports empty-text replay 
     page.locator("article.answer").last().getByRole("status"),
   ).toHaveText("Completed");
   await expect(send).toBeDisabled();
+  await draft.fill("Unrelated draft that must not enter a recovered chat");
+  await page
+    .getByRole("button", { name: "Edit as a new run", exact: true })
+    .last()
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Cancel edit", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Attach files to chat", { exact: true }),
+  ).toBeDisabled();
+  if (info.project.use.hasTouch)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("button", { name: "image-only.png", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Cancel edit", exact: true }),
+  ).toHaveCount(0);
+  await expect(draft).toBeVisible();
+  await expect(draft).toHaveValue("");
+  await expect(send).toBeDisabled();
+  await expect(
+    page.getByLabel("Attach files to chat", { exact: true }),
+  ).toBeEnabled();
+  await expect(page.locator(".compact-picker .attachment-item")).toHaveCount(0);
+  await page.screenshot({
+    path: `../artifacts/history-clean-composer-${info.project.name}.png`,
+  });
+  await page.getByLabel("Attach files to chat", { exact: true }).setInputFiles({
+    name: "new-recovered-image.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  });
+  await expect(send).toBeEnabled();
+  await options.click();
+  await expect(system).toHaveValue("Analyze only the current screenshot");
+  await system.fill("");
+  await expect(send).toBeDisabled();
+  await draft.fill("Analyze this new image only");
+  await expect(send).toBeEnabled();
+  const nextRequest = page.waitForRequest(
+    (r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/runs",
+  );
+  await send.click();
+  const nextBody = (await nextRequest).postDataJSON();
+  expect(nextBody.retry_of).toBeUndefined();
+  expect(nextBody.attachment_ids).toHaveLength(1);
+  await expect(page.locator("article.answer")).toHaveCount(4);
+  await expect(
+    page.locator("article.answer").last().getByRole("status"),
+  ).toHaveText("Completed");
+  const savedResponse = await page.request.get(
+    `/api/conversations/${nextBody.conversation_id}`,
+  );
+  const recovered = await savedResponse.json();
+  expect(
+    recovered.runs.at(-1).attachments.map((item: { id: string }) => item.id),
+  ).toEqual(nextBody.attachment_ids);
+  expect(recovered.runs[0].attachments[0].id).not.toBe(
+    nextBody.attachment_ids[0],
+  );
+  await expect(send).toBeDisabled();
 });
 
 test("independent Chat mode stays compact, restores from history and resets for a new conversation", async ({

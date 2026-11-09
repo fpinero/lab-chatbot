@@ -164,13 +164,17 @@ test("accepted sending folds, keeps Stop, and restores preference/history withou
     .getByRole("navigation", { name: "Search history" })
     .getByRole("button", { name: prompt.slice(0, 80), exact: true })
     .click();
+  await expect(input).toBeVisible();
+  await expect(input).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "Write a message" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Send message", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByLabel("Attach files to chat", { exact: true }),
+  ).toBeEnabled();
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(input).toBeVisible();
   await page.setViewportSize({ width: 412, height: 924 });
-  await page.getByRole("button", { name: "Write a message" }).click();
   await page.route("**/api/runs", (route) =>
     route.fulfill({
       status: 503,
