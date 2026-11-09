@@ -60,6 +60,22 @@ a {
   font-family: Georgia, serif;
   font-size: 24px;
 }
+.sidebar-logo-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  flex-shrink: 0;
+  background: transparent;
+  color: inherit;
+}
+@media (max-width: 760px) {
+  .desktop-navigation-toggle {
+    display: none;
+  }
+}
 .brand strong {
   font-size: 15px;
   font-weight: 600;

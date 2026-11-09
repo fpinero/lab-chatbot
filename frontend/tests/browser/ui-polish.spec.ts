@@ -10,6 +10,102 @@ async function signIn(page: Page) {
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 
+test("sidebar logo toggles reclaim desktop space and preserve drafts through responsive transitions", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await signIn(page);
+  const posts: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST")
+      posts.push(new URL(request.url()).pathname);
+  });
+  const sidebar = page.getByRole("complementary", { name: "Navigation" });
+  const draft = page.getByLabel("Message", { exact: true });
+  const show = page.getByRole("button", { name: "Show sidebar", exact: true });
+  const hide = page.getByRole("button", { name: "Hide sidebar", exact: true });
+  await draft.fill("Preserve this draft while arranging two browser windows");
+  await page.getByText("Options", { exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "System prompt", exact: true })
+    .fill("Keep these instructions");
+  const before = (await page.locator(".chat-workspace > main").boundingBox())!
+    .width;
+  await hide.focus();
+  await hide.press("Enter");
+  await expect(sidebar).toBeHidden();
+  await expect(show).toBeFocused();
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  expect(
+    (await page.locator(".chat-workspace > main").boundingBox())!.width,
+  ).toBeGreaterThan(before + 240);
+  const bounds = (await show.boundingBox())!;
+  expect(bounds.width).toBeGreaterThanOrEqual(44);
+  expect(bounds.height).toBeGreaterThanOrEqual(44);
+  await expect(draft).toHaveValue(
+    "Preserve this draft while arranging two browser windows",
+  );
+  await page.getByText("Options", { exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "System prompt", exact: true }),
+  ).toHaveValue("Keep these instructions");
+  await draft.click();
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.screenshot({
+      path: `../artifacts/sidebar-collapsed-${info.project.name}-${scheme}.png`,
+    });
+  }
+  await show.press("Enter");
+  await expect(sidebar).toBeVisible();
+  await expect(hide).toBeFocused();
+  await hide.click();
+  await page.reload();
+  await expect(show).toBeVisible();
+  await expect(sidebar).toBeHidden();
+  await draft.fill("Keep this draft while resizing");
+  for (const width of [960, 761, 760, 412, 360]) {
+    await page.setViewportSize({ width, height: 800 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await expect(draft).toHaveValue("Keep this draft while resizing");
+  }
+  const mobileOpen = page.getByRole("button", {
+    name: "Open navigation",
+    exact: true,
+  });
+  await expect(mobileOpen).toBeVisible();
+  await mobileOpen.click();
+  await expect(sidebar).toBeVisible();
+  await expect(hide).toBeFocused();
+  await hide.press("Escape");
+  await expect(sidebar).toBeHidden();
+  await expect(mobileOpen).toBeFocused();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("lab-chatbot.sidebar-collapsed"),
+    ),
+  ).toBe("true");
+  await mobileOpen.click();
+  await page.setViewportSize({ width: 960, height: 800 });
+  await expect(sidebar).toBeHidden();
+  await expect(show).toBeFocused();
+  await show.click();
+  await expect(sidebar).toBeVisible();
+  await page.setViewportSize({ width: 412, height: 800 });
+  await expect(sidebar).toBeHidden();
+  await mobileOpen.click();
+  await page
+    .getByRole("button", { name: "Close navigation", exact: true })
+    .click();
+  await page.setViewportSize({ width: 960, height: 800 });
+  await expect(sidebar).toBeVisible();
+  expect(posts).toEqual([]);
+});
+
 test("attachment-only Chat applies System prompt and supports empty-text replay and edits", async ({
   page,
 }, info) => {

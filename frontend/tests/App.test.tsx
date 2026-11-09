@@ -116,6 +116,72 @@ function mockRequests(
     });
 }
 
+test("desktop logo collapse preserves the draft, stores only a boolean and restores keyboard focus", async () => {
+  const fetcher = mockRequests(true);
+  const view = render(<App />);
+  const input = await screen.findByLabelText("Message", { exact: true });
+  await userEvent.type(input, "Keep my draft");
+  const hide = screen.getByRole("button", { name: "Hide sidebar" });
+  expect(hide).toHaveAttribute("aria-expanded", "true");
+  await userEvent.click(hide);
+  expect(
+    screen.queryByRole("complementary", { name: "Navigation" }),
+  ).not.toBeInTheDocument();
+  const show = screen.getByRole("button", { name: "Show sidebar" });
+  expect(show).toHaveFocus();
+  expect(show).toHaveAttribute("aria-expanded", "false");
+  expect(input).toHaveValue("Keep my draft");
+  expect(localStorage.getItem("lab-chatbot.sidebar-collapsed")).toBe("true");
+  expect(Object.keys(localStorage)).toEqual(["lab-chatbot.sidebar-collapsed"]);
+  view.unmount();
+  render(<App />);
+  await screen.findByLabelText("Message", { exact: true });
+  expect(
+    screen.queryByRole("complementary", { name: "Navigation" }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+  expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveFocus();
+  expect(localStorage.getItem("lab-chatbot.sidebar-collapsed")).toBe("false");
+  expect(
+    fetcher.mock.calls.some(([, options]) => options?.method === "POST"),
+  ).toBe(false);
+});
+
+test("sidebar collapse remains usable when browser storage is blocked", async () => {
+  mockRequests(true);
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("Storage blocked");
+  });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("Storage blocked");
+  });
+  render(<App />);
+  await screen.findByLabelText("Message", { exact: true });
+  await userEvent.click(screen.getByRole("button", { name: "Hide sidebar" }));
+  await userEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
+  expect(
+    screen.getByRole("complementary", { name: "Navigation" }),
+  ).toBeVisible();
+});
+
+test("mobile navigation never changes the desktop collapse preference and Escape returns focus", async () => {
+  mobileViewport();
+  localStorage.setItem("lab-chatbot.sidebar-collapsed", "true");
+  mockRequests(true);
+  render(<App />);
+  await screen.findByLabelText("Message", { exact: true });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open navigation" }),
+  );
+  expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
+  expect(
+    screen.getByRole("button", { name: "Open navigation" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  expect(localStorage.getItem("lab-chatbot.sidebar-collapsed")).toBe("true");
+});
+
 test("independent Chat prompts are opt-in, preserve saved edit mode and reset with New conversation", async () => {
   const fetcher = mockRequests(true);
   const original = fetcher.getMockImplementation()!;
