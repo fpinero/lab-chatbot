@@ -10,6 +10,160 @@ async function signIn(page: Page) {
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 
+test("mobile history keeps several rows visible while Privacy and Usage open on demand", async ({
+  page,
+}, info) => {
+  const history = Array.from({ length: 60 }, (_, i) => ({
+    id: `history-space-${i}`,
+    title: `Past conversation ${i}`,
+    created_at: 1,
+    updated_at: 1,
+  }));
+  let searches = 0;
+  await page.route("**/api/conversations?q=*", async (route) => {
+    const q = new URL(route.request().url()).searchParams.get("q") ?? "";
+    searches++;
+    await route.fulfill({
+      json: history.filter((item) => item.title.includes(q)),
+    });
+  });
+  await page.route("**/api/conversations/history-space-42", (route) =>
+    route.fulfill({ json: { ...history[42], runs: [] } }),
+  );
+  await page.route(/\/api\/usage(?:\?.*)?$/, (route) =>
+    route.fulfill({
+      json: {
+        spend_control: "provider",
+        simulated: false,
+        provider_key_budget: {
+          limit_usd: "9.9",
+          remaining_usd: "9.600690",
+          used_usd: "0.299310",
+          checked_at: 1700000000,
+        },
+        daily_actual_microusd: 169352,
+        outstanding_microusd: 0,
+        uncertain_count: 1,
+        conversations: {},
+        request_limit_microusd: null,
+        daily_limit_microusd: null,
+      },
+    }),
+  );
+  await signIn(page);
+  await page.setViewportSize({ width: 412, height: 924 });
+  const generations: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST") generations.push(r.url());
+  });
+  const opener = page.getByRole("button", {
+    name: "Open navigation",
+    exact: true,
+  });
+  await opener.click();
+  const sidebar = page.getByRole("complementary", {
+    name: "Navigation",
+    exact: true,
+  });
+  const list = sidebar.getByRole("navigation", {
+    name: "Search history",
+    exact: true,
+  });
+  const privacy = sidebar.getByRole("button", { name: "Privacy", exact: true });
+  const privacyPanel = page.getByRole("dialog", {
+    name: "Privacy",
+    exact: true,
+  });
+  const usage = sidebar.getByRole("button", { name: "Usage", exact: true });
+  const usagePanel = page.getByRole("dialog", { name: "Usage", exact: true });
+  for (const size of [
+    { width: 412, height: 924 },
+    { width: 360, height: 740 },
+    { width: 360, height: 430 },
+  ]) {
+    await page.setViewportSize(size);
+    await expect(privacyPanel).toBeHidden();
+    await expect(usagePanel).toBeHidden();
+    const bounds = (await list.boundingBox())!;
+    expect(bounds.height).toBeGreaterThanOrEqual(
+      size.height === 924 ? 352 : size.height === 740 ? 176 : 88,
+    );
+    expect(await list.locator("button").first().boundingBox()).not.toBeNull();
+    expect(
+      await list.evaluate((node) => node.scrollHeight > node.clientHeight),
+    ).toBe(true);
+    await privacy.scrollIntoViewIfNeeded();
+    expect(
+      (await page
+        .getByRole("button", { name: "Close navigation", exact: true })
+        .boundingBox())!.y,
+    ).toBeGreaterThanOrEqual(0);
+    const before = (await list.boundingBox())!.height;
+    await privacy.click();
+    await expect(privacyPanel).toBeVisible();
+    await expect(privacyPanel).toContainText("Simulated provider");
+    expect((await list.boundingBox())!.height).toBe(before);
+    await page
+      .getByRole("button", { name: "Close Privacy", exact: true })
+      .press("Escape");
+    await expect(privacyPanel).toBeHidden();
+    await expect(privacy).toBeFocused();
+    await expect(sidebar).toBeVisible();
+    await privacy.click();
+    await expect(privacyPanel).toBeVisible();
+    await page.mouse.click(size.width - 4, 180);
+    await expect(privacyPanel).toBeHidden();
+    await expect(privacy).toHaveAttribute("aria-expanded", "false");
+    await expect(sidebar).toBeVisible();
+    await usage.click();
+    await expect(usagePanel).toBeVisible();
+    await expect(usagePanel).toContainText("Unknown billing records: 1");
+    await expect(
+      usagePanel.getByRole("button", { name: "Refresh balance", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Close Usage", exact: true })
+      .click();
+    await expect(usage).toBeFocused();
+    expect(
+      await sidebar.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+  }
+  await page.setViewportSize({ width: 412, height: 924 });
+  await list.evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.screenshot({
+      path: `../artifacts/mobile-history-${info.project.name}-${scheme}.png`,
+    });
+  }
+  await privacy.click();
+  await page
+    .getByRole("button", { name: "Close navigation", exact: true })
+    .click();
+  await expect(privacyPanel).toBeHidden();
+  await expect(opener).toBeFocused();
+  await opener.click();
+  await expect(privacyPanel).toBeHidden();
+  const search = sidebar.getByRole("textbox", {
+    name: "Search history",
+    exact: true,
+  });
+  await search.fill("42");
+  await expect(list.getByRole("button")).toHaveCount(1);
+  await list
+    .getByRole("button", { name: "Past conversation 42", exact: true })
+    .click();
+  await expect(sidebar).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Rename conversation", exact: true }),
+  ).toBeVisible();
+  expect(searches).toBeGreaterThan(1);
+  expect(generations).toEqual([]);
+});
+
 test("sidebar logo toggles reclaim desktop space and preserve drafts through responsive transitions", async ({
   page,
 }, info) => {

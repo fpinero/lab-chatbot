@@ -8,6 +8,8 @@ The owner prioritized mobile reading space and model search ahead of the remaini
 
 ## External verification prerequisites
 
+- [ ] Integrate and deploy verified mobile history layout with on-demand Privacy/Usage and encrypted recovery checks.
+
 - [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 17; physical platform/browser checks remain separate.
 
 

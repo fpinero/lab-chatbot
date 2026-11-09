@@ -29,6 +29,7 @@ import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
 import ComparisonPanel from "../compare/ComparisonPanel";
+import SidebarInfo from "./SidebarInfo";
 
 const ImagePanel = lazy(() => import("../images/ImagePanel"));
 
@@ -167,6 +168,7 @@ export default function Workspace({
   });
 
   function toggleNavigation() {
+    if (sidebarVisible) hideSidebarInfo();
     navigationFocus.current = sidebarVisible ? "opener" : "sidebar";
     if (mobile) setNavigationOpen(!navigationOpen);
     else {
@@ -181,9 +183,15 @@ export default function Workspace({
   }
   function closeNavigation() {
     if (mobile && navigationOpen) {
+      hideSidebarInfo();
       navigationFocus.current = "opener";
       setNavigationOpen(false);
     }
+  }
+  function hideSidebarInfo() {
+    sidebarRef.current
+      ?.querySelectorAll<HTMLElement>("[popover]")
+      .forEach((panel) => panel.hidePopover?.());
   }
   useLayoutEffect(() => {
     const target = navigationFocus.current;
@@ -195,6 +203,7 @@ export default function Workspace({
   useEffect(() => {
     if (previousMobile.current === mobile) return;
     previousMobile.current = mobile;
+    hideSidebarInfo();
     setNavigationOpen(false);
     if (
       document.activeElement === document.body ||
@@ -210,6 +219,18 @@ export default function Workspace({
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.preventDefault();
+      const popup = Array.from(
+        sidebarRef.current?.querySelectorAll<HTMLElement>("[popover]") ?? [],
+      ).find(
+        (panel) =>
+          typeof panel.hidePopover === "function" &&
+          panel.matches(":popover-open"),
+      );
+      if (popup) {
+        popup.hidePopover();
+        (popup.previousElementSibling as HTMLElement | null)?.focus();
+        return;
+      }
       navigationFocus.current = "opener";
       setNavigationOpen(false);
     };
@@ -602,6 +623,80 @@ export default function Workspace({
     }
   }
 
+  function usageDetails() {
+    if (!usage) return null;
+    return (
+      <>
+        <span className="eyebrow">
+          {usage.simulated ? copy.simulated : copy.usage}
+        </span>
+        {usage.spend_control === "provider" && !usage.simulated && (
+          <>
+            <p>{copy.providerSpending}</p>
+            {usage.provider_key_budget ? (
+              <>
+                <p>
+                  {copy.providerKeyLimit}: $
+                  {Number(usage.provider_key_budget.limit_usd).toFixed(2)}
+                </p>
+                <p>
+                  {copy.providerKeyRemaining}: $
+                  {Number(usage.provider_key_budget.remaining_usd).toFixed(6)}
+                </p>
+                <small>
+                  {copy.budgetChecked}:{" "}
+                  {new Date(
+                    usage.provider_key_budget.checked_at * 1000,
+                  ).toLocaleTimeString()}
+                </small>
+              </>
+            ) : (
+              <p>{copy.providerBudgetUnavailable}</p>
+            )}
+            <button
+              type="button"
+              className="balance-refresh"
+              disabled={refreshingBalance}
+              aria-busy={refreshingBalance}
+              aria-label={copy.refreshUsage}
+              onClick={() => void refreshBalance()}
+            >
+              {refreshingBalance ? copy.refreshingBalance : copy.refreshUsage}
+            </button>
+            {balanceFeedback && (
+              <p
+                className={
+                  balanceFeedback === "failed"
+                    ? "balance-error"
+                    : "balance-feedback"
+                }
+                role={balanceFeedback === "failed" ? "alert" : "status"}
+              >
+                {balanceFeedback === "failed"
+                  ? copy.balanceRefreshFailed
+                  : copy.balanceUpdated}
+              </p>
+            )}
+          </>
+        )}
+        <p>
+          {copy.daily}: {usd(usage.daily_actual_microusd)}
+        </p>
+        {usage.spend_control !== "provider" && (
+          <p>
+            {copy.outstanding}: {usd(usage.outstanding_microusd)}
+          </p>
+        )}
+        <p>
+          {copy.uncertain}: {usage.uncertain_count}
+        </p>
+        {usage.spend_control === "provider" && usage.uncertain_count > 0 && (
+          <p>{copy.providerPendingAccounting}</p>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="workspace chat-workspace">
       <aside
@@ -611,28 +706,36 @@ export default function Workspace({
         aria-label={copy.navigation}
         hidden={!mobile && sidebarCollapsed}
       >
-        <button className="mobile-close" onClick={closeNavigation}>
-          {copy.closeNavigation}
-        </button>
-        <div className="brand">
+        <div className="sidebar-brand">
+          <div className="brand">
+            <button
+              type="button"
+              className="sidebar-logo-toggle"
+              ref={sidebarLogoRef}
+              aria-label={copy.hideSidebar}
+              title={copy.hideSidebar}
+              aria-controls="workspace-navigation"
+              aria-expanded={sidebarVisible}
+              onClick={toggleNavigation}
+            >
+              <span className="brand-mark" aria-hidden="true">
+                L
+              </span>
+            </button>
+            <span>
+              <strong>{copy.appName}</strong>
+              <small>{copy.subtitle}</small>
+            </span>
+          </div>
           <button
             type="button"
-            className="sidebar-logo-toggle"
-            ref={sidebarLogoRef}
-            aria-label={copy.hideSidebar}
-            title={copy.hideSidebar}
-            aria-controls="workspace-navigation"
-            aria-expanded={sidebarVisible}
-            onClick={toggleNavigation}
+            className="mobile-close"
+            aria-label={copy.closeNavigation}
+            title={copy.closeNavigation}
+            onClick={closeNavigation}
           >
-            <span className="brand-mark" aria-hidden="true">
-              L
-            </span>
+            ×
           </button>
-          <span>
-            <strong>{copy.appName}</strong>
-            <small>{copy.subtitle}</small>
-          </span>
         </div>
         <button
           className="new-conversation"
@@ -665,86 +768,30 @@ export default function Workspace({
         </nav>
         {usage && (
           <section className="usage-summary" aria-label={copy.usage}>
-            <span className="eyebrow">
-              {usage.simulated ? copy.simulated : copy.usage}
-            </span>
-            {usage.spend_control === "provider" && !usage.simulated && (
-              <>
-                <p>{copy.providerSpending}</p>
-                {usage.provider_key_budget ? (
-                  <>
-                    <p>
-                      {copy.providerKeyLimit}: $
-                      {Number(usage.provider_key_budget.limit_usd).toFixed(2)}
-                    </p>
-                    <p>
-                      {copy.providerKeyRemaining}: $
-                      {Number(usage.provider_key_budget.remaining_usd).toFixed(
-                        6,
-                      )}
-                    </p>
-                    <small>
-                      {copy.budgetChecked}:{" "}
-                      {new Date(
-                        usage.provider_key_budget.checked_at * 1000,
-                      ).toLocaleTimeString()}
-                    </small>
-                  </>
-                ) : (
-                  <p>{copy.providerBudgetUnavailable}</p>
-                )}
-                <button
-                  type="button"
-                  className="balance-refresh"
-                  disabled={refreshingBalance}
-                  aria-busy={refreshingBalance}
-                  aria-label={copy.refreshUsage}
-                  onClick={() => void refreshBalance()}
-                >
-                  {refreshingBalance
-                    ? copy.refreshingBalance
-                    : copy.refreshUsage}
-                </button>
-                {balanceFeedback && (
-                  <p
-                    className={
-                      balanceFeedback === "failed"
-                        ? "balance-error"
-                        : "balance-feedback"
-                    }
-                    role={balanceFeedback === "failed" ? "alert" : "status"}
-                  >
-                    {balanceFeedback === "failed"
-                      ? copy.balanceRefreshFailed
-                      : copy.balanceUpdated}
-                  </p>
-                )}
-              </>
+            {mobile ? (
+              <SidebarInfo
+                label={copy.usage}
+                summary={
+                  usage.provider_key_budget
+                    ? `${copy.providerKeyRemaining}: $${Number(usage.provider_key_budget.remaining_usd).toFixed(6)}`
+                    : undefined
+                }
+              >
+                {usageDetails()}
+              </SidebarInfo>
+            ) : (
+              usageDetails()
             )}
-            <p>
-              {copy.daily}: {usd(usage.daily_actual_microusd)}
-            </p>
-            {usage.spend_control !== "provider" && (
-              <p>
-                {copy.outstanding}: {usd(usage.outstanding_microusd)}
-              </p>
-            )}
-            <p>
-              {copy.uncertain}: {usage.uncertain_count}
-            </p>
-            {usage.spend_control === "provider" &&
-              usage.uncertain_count > 0 && (
-                <p>{copy.providerPendingAccounting}</p>
-              )}
           </section>
         )}
         <section className="sidebar-privacy" aria-label={copy.privacyHeading}>
-          <span className="eyebrow">{copy.privacyHeading}</span>
-          <p>
-            {ownerSession.provider_mode === "mock"
-              ? copy.mockNotice
-              : copy.privacy}
-          </p>
+          <SidebarInfo label={copy.privacyHeading}>
+            <p>
+              {ownerSession.provider_mode === "mock"
+                ? copy.mockNotice
+                : copy.privacy}
+            </p>
+          </SidebarInfo>
         </section>
         <footer
           className="sidebar-version"
