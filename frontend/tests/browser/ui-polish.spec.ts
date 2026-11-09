@@ -667,7 +667,7 @@ test("favorites persist without changing startup selection and catalog refresh r
   const region = page.getByRole("region", { name: "Image", exact: true });
   await expect(
     region.getByRole("combobox", { name: "Image model", exact: true }),
-  ).toHaveValue(imageCatalog.models[0].id);
+  ).toHaveValue("mock/image-studio");
   const imageDraft = region.getByLabel("Image prompt", { exact: true });
   await imageDraft.fill("Keep this image prompt");
   const imageControl = region.locator(".catalog-refresh");
