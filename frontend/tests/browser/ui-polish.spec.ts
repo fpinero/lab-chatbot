@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { CatalogInfo, ImageCatalogInfo } from "../../src/lib/api";
+import type { CatalogInfo, ImageCatalogInfo, RunInfo } from "../../src/lib/api";
 
 async function signIn(page: Page) {
   await page.goto("/");
@@ -9,6 +9,200 @@ async function signIn(page: Page) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
+
+test("processing dots track each answer and response copy waits for terminal text", async ({
+  page,
+}, info) => {
+  await page.addInitScript(() => {
+    const state = window as typeof window & {
+      processingStreams: EventTarget[];
+      responseCopies: string[];
+    };
+    state.processingStreams = [];
+    state.responseCopies = [];
+    Object.defineProperty(window, "EventSource", {
+      value: class extends EventTarget {
+        constructor() {
+          super();
+          state.processingStreams.push(this);
+        }
+        close() {}
+      },
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async (text: string) => {
+          state.responseCopies.push(text);
+        },
+      },
+      configurable: true,
+    });
+  });
+  const chat = {
+    id: "processing-chat",
+    title: "Processing feedback fixture",
+    created_at: 1,
+    updated_at: 1,
+  };
+  const base: RunInfo = {
+    id: "prior-answer",
+    conversation_id: chat.id,
+    model_id: "mock/steady",
+    model_name: "Completed fixture",
+    turn: 1,
+    prompt: "Previous request",
+    output: "A previous completed answer",
+    status: "succeeded",
+    error_code: null,
+    provider: "Local mock",
+    generation_id: null,
+    sequence: 1,
+    created_at: 1,
+    started_at: 1,
+    completed_at: 1,
+    first_token_ms: 1,
+    elapsed_ms: 1,
+    reserved_microusd: 0,
+    actual_microusd: 0,
+    queue_delay_ms: 0,
+    comparison_id: null,
+    attachments: [],
+    accounting_state: "settled",
+    usage: null,
+    simulated: true,
+    settings: {},
+  };
+  let current: RunInfo = {
+    ...base,
+    id: "pending-answer",
+    model_name: "Processing fixture",
+    turn: 2,
+    prompt: "New request",
+    output: "",
+    status: "queued",
+    accounting_state: "reserved",
+    completed_at: null,
+  };
+  await page.route("**/api/conversations?q=*", (route) =>
+    route.fulfill({ json: [chat] }),
+  );
+  await page.route(`**/api/conversations/${chat.id}`, (route) =>
+    route.fulfill({ json: { ...chat, runs: [base] } }),
+  );
+  let requests = 0;
+  await page.route("**/api/runs", (route) => {
+    requests++;
+    return route.fulfill({ json: current });
+  });
+  await signIn(page);
+  if (info.project.use.hasTouch)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: chat.title, exact: true }).click();
+  const prior = page.getByRole("article", {
+    name: base.model_name,
+    exact: true,
+  });
+  await expect(
+    prior.getByRole("button", { name: "Copy response", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Message", { exact: true }).fill("New request");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  const answer = page.getByRole("article", {
+    name: current.model_name,
+    exact: true,
+  });
+  const dots = answer.locator(".processing-dots");
+  await expect(answer.getByRole("status")).toHaveText("Queued...");
+  await expect(dots).toBeVisible();
+  await expect(dots).toHaveAttribute("aria-hidden", "true");
+  await expect(
+    answer.getByRole("button", { name: "Copy response", exact: true }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as typeof window & { processingStreams: EventTarget[] })
+            .processingStreams.length,
+      ),
+    )
+    .toBe(1);
+  const phases = await dots.evaluate((node) => {
+    const animation = node.getAnimations()[0];
+    animation.pause();
+    return [0, 400, 800].map((time) => {
+      animation.currentTime = time;
+      return {
+        clip: getComputedStyle(node).clipPath,
+        width: node.getBoundingClientRect().width,
+      };
+    });
+  });
+  expect(new Set(phases.map((phase) => phase.clip)).size).toBe(3);
+  expect(new Set(phases.map((phase) => phase.width)).size).toBe(1);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(dots).toHaveCSS("animation-name", "none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const emit = async (status: string, output = "") => {
+    current = {
+      ...current,
+      status,
+      output,
+      error_code: status === "failed" ? "synthetic_failure" : null,
+    };
+    await page.evaluate((run) => {
+      const streams = (
+        window as typeof window & { processingStreams: EventTarget[] }
+      ).processingStreams;
+      streams
+        .at(-1)!
+        .dispatchEvent(
+          new MessageEvent("run.snapshot", { data: JSON.stringify({ run }) }),
+        );
+    }, current);
+  };
+  await emit("running");
+  await expect(answer.getByRole("status")).toHaveText("Generating...");
+  await prior
+    .getByRole("button", { name: "Copy response", exact: true })
+    .click();
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.screenshot({
+      path: `../artifacts/processing-${info.project.name}-${scheme}.png`,
+    });
+  }
+  await emit("running", "Partial streaming text");
+  await expect(answer.locator(".markdown")).toHaveText(
+    "Partial streaming text",
+  );
+  await expect(
+    answer.getByRole("button", { name: "Copy response", exact: true }),
+  ).toHaveCount(0);
+  await emit("cancel_requested", "Partial streaming text");
+  await expect(answer.getByRole("status")).toHaveText("Stopping...");
+  await expect(dots).toBeVisible();
+  await expect(
+    answer.getByRole("button", { name: "Copy response", exact: true }),
+  ).toHaveCount(0);
+  await emit("succeeded", "Final **Markdown**\n  with whitespace\n");
+  await expect(dots).toHaveCount(0);
+  await answer
+    .getByRole("button", { name: "Copy response", exact: true })
+    .click();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as typeof window & { responseCopies: string[] }).responseCopies,
+    ),
+  ).toEqual([base.output, current.output]);
+  expect(requests).toBe(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
 
 test("mobile history keeps several rows visible while Privacy and Usage open on demand", async ({
   page,
