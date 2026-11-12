@@ -19,6 +19,7 @@ import {
   type UsageInfo,
 } from "../../lib/api";
 import { copy } from "../../lib/copy";
+import { isRunTerminal } from "../../lib/runStatus";
 import { useMobile } from "../../lib/useMobile";
 import { useEnterToSend } from "../../lib/useEnterToSend";
 import RunCard from "./RunCard";
@@ -33,8 +34,7 @@ import SidebarInfo from "./SidebarInfo";
 
 const ImagePanel = lazy(() => import("../images/ImagePanel"));
 
-const terminal = (run: RunInfo) =>
-  ["succeeded", "failed", "cancelled", "interrupted"].includes(run.status);
+const terminal = (run: RunInfo) => isRunTerminal(run.status);
 const price = (value: string) =>
   (Number(value) * 1_000_000).toLocaleString(undefined, {
     maximumFractionDigits: 6,

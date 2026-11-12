@@ -631,6 +631,35 @@ button:disabled {
   color: #253d36;
   font-size: 13px;
 }
+.run-status {
+  display: inline-flex;
+  align-items: baseline;
+}
+.processing-dots {
+  display: inline-block;
+  width: 3ch;
+  margin-left: 0.25em;
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  clip-path: inset(0 2ch 0 0);
+  animation: response-processing-dots 1.2s steps(3, jump-none) infinite;
+}
+@keyframes response-processing-dots {
+  from {
+    clip-path: inset(0 2ch 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .processing-dots {
+    animation: none;
+    clip-path: inset(0 0 0 0);
+  }
+}
 .answer-meta,
 .answer-actions {
   display: flex;

@@ -8,6 +8,8 @@ The owner prioritized mobile reading space and model search ahead of the remaini
 
 ## External verification prerequisites
 
+- [ ] Verify and deploy per-response processing dots and terminal, non-empty Copy response availability, preserving older answers and reduced-motion support.
+
 - [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 19; physical platform/browser checks remain separate.
 
 

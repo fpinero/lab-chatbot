@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { RunInfo } from "../../lib/api";
 import { copy } from "../../lib/copy";
+import { isRunTerminal } from "../../lib/runStatus";
 import { useMobile } from "../../lib/useMobile";
 import { AttachmentPreview } from "../attachments/AttachmentPicker";
 import Markdown from "./Markdown";
@@ -18,13 +19,20 @@ export default function RunCard({
 }) {
   const mobile = useMobile();
   const inherited = run.accounting_state === "inherited";
+  const processing = !isRunTerminal(run.status);
+  const canCopy = !processing && run.output.trim().length > 0;
   return (
     <article className="answer" aria-label={run.model_name}>
       <div className="answer-heading">
         <strong>{run.model_name}</strong>
         <span>{run.provider ?? copy.providerUnknown}</span>
-        <span role="status">
+        <span role="status" className="run-status">
           {copy.status[run.status as keyof typeof copy.status] ?? run.status}
+          {processing && (
+            <span className="processing-dots" aria-hidden="true">
+              ...
+            </span>
+          )}
         </span>
       </div>
       {inherited && <p className="notice">{copy.imported}</p>}
@@ -113,12 +121,14 @@ export default function RunCard({
         </p>
       )}
       <div className="answer-actions">
-        <CopyButton
-          text={run.output}
-          label={copy.copyResponse}
-          successMessage={copy.responseCopied}
-          failureMessage={copy.responseCopyFailed}
-        />
+        {canCopy && (
+          <CopyButton
+            text={run.output}
+            label={copy.copyResponse}
+            successMessage={copy.responseCopied}
+            failureMessage={copy.responseCopyFailed}
+          />
+        )}
         {actions}
       </div>
     </article>
