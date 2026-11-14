@@ -77,9 +77,9 @@ test("image-input filtering preserves explicit Chat and Compare choices, search 
       generations.push(request.url());
   });
   await signIn(page);
-  const reads = catalogReads;
   const picker = page.getByRole("combobox", { name: "Model", exact: true });
   await expect(picker).toHaveValue("Local text only");
+  const reads = catalogReads;
   await picker.click();
   const popup = page.locator(".model-popup");
   await expect(popup.getByRole("option")).toHaveCount(6);
