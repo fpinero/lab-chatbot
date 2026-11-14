@@ -10,6 +10,222 @@ async function signIn(page: Page) {
   await expect(page.getByLabel("Message", { exact: true })).toBeVisible();
 }
 
+test("image-input filtering preserves explicit Chat and Compare choices, search and favorites", async ({
+  page,
+}, info) => {
+  let catalogReads = 0;
+  await page.route("**/api/models", async (route) => {
+    catalogReads++;
+    const response = await route.fetch();
+    const data: CatalogInfo = await response.json();
+    const model = data.models[0];
+    data.models = [
+      {
+        ...model,
+        id: "mock/steady",
+        name: "Local text only",
+        input_modalities: ["text"],
+      },
+      {
+        ...model,
+        id: "mock/brief",
+        name: "Local text alternative",
+        input_modalities: ["text"],
+      },
+      {
+        ...model,
+        id: "mock/clear",
+        name: "Vendor: Vision One",
+        input_modalities: ["text", "image"],
+      },
+      {
+        ...model,
+        id: "vendor/vision-two",
+        name: "Vendor: Vision Two",
+        input_modalities: ["text", "image"],
+      },
+      {
+        ...model,
+        id: "vendor/unknown",
+        name: "Vendor: Unknown",
+        input_modalities: [],
+      },
+      {
+        ...model,
+        id: "vendor/image-maker",
+        name: "Vendor: Image output only",
+        input_modalities: ["text"],
+        output_modalities: ["text", "image"],
+      },
+    ];
+    await route.fulfill({ response, json: data });
+  });
+  await page.route("**/api/preferences", (route) =>
+    route.fulfill({ json: { favorites: ["vendor/vision-two"] } }),
+  );
+  const generations: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      [
+        "/api/runs",
+        "/api/comparisons",
+        "/api/models/refresh",
+        "/api/images/jobs",
+      ].includes(new URL(request.url()).pathname)
+    )
+      generations.push(request.url());
+  });
+  await signIn(page);
+  const reads = catalogReads;
+  const picker = page.getByRole("combobox", { name: "Model", exact: true });
+  await expect(picker).toHaveValue("Local text only");
+  await picker.click();
+  const popup = page.locator(".model-popup");
+  await expect(popup.getByRole("option")).toHaveCount(6);
+  await expect(popup.getByRole("option", { name: /Unknown/ })).toContainText(
+    "Input support unavailable",
+  );
+  const filter = popup.getByRole("checkbox", {
+    name: "Only models that accept images",
+    exact: true,
+  });
+  await filter.check();
+  expect(
+    (await filter.locator("..").boundingBox())!.height,
+  ).toBeGreaterThanOrEqual(44);
+  await expect(popup.getByRole("option")).toHaveCount(2);
+  await expect(popup.getByRole("option").first()).toContainText("Vision Two");
+  await expect(popup).toContainText("current model is outside this filter");
+  await picker.fill("VeNdOr VISION one");
+  await expect(popup.getByRole("option")).toHaveCount(1);
+  await picker.fill("not-a-model");
+  await expect(popup.getByRole("status")).toHaveText(
+    "No Text + image models match this search",
+  );
+  await picker.press("Escape");
+  await expect(picker).toHaveValue("Local text only");
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 24;
+    canvas.height = 16;
+    canvas.getContext("2d")!.fillRect(0, 0, 24, 16);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page.getByLabel("Attach files to chat", { exact: true }).setInputFiles({
+    name: "model-filter.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  });
+  await page
+    .getByLabel("Message", { exact: true })
+    .fill("Analyze this screenshot");
+  const send = page.getByRole("button", { name: "Send message", exact: true });
+  await expect(send).toBeDisabled();
+  await expect(page.locator(".chat-composer").getByRole("alert")).toContainText(
+    "support image input",
+  );
+  await picker.click();
+  await expect(filter).toBeChecked();
+  if (info.project.use.hasTouch) {
+    await page.setViewportSize({ width: 360, height: 430 });
+    const box = (await popup.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(431);
+  }
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.screenshot({
+      path: `../artifacts/image-filter-chat-${info.project.name}-${scheme}.png`,
+    });
+  }
+  await popup.getByRole("option", { name: /Vision One/ }).click();
+  await expect(send).toBeEnabled();
+  await expect(picker).toHaveValue("Vision One");
+  if (info.project.use.hasTouch)
+    await page.setViewportSize({
+      width: info.project.name.includes("pixel") ? 412 : 360,
+      height: info.project.name.includes("pixel") ? 924 : 740,
+    });
+  await page.getByLabel("Mode", { exact: true }).selectOption("compare");
+  const compare = page.getByRole("region", { name: "Compare", exact: true });
+  const candidates = compare.locator(".candidate-picker");
+  const compareFilter = candidates.getByRole("checkbox", {
+    name: "Only models that accept images",
+    exact: true,
+  });
+  await expect(compareFilter).toBeChecked();
+  const retained = candidates.getByRole("group", {
+    name: "Selected outside this filter",
+    exact: true,
+  });
+  await expect(retained.getByRole("checkbox")).toHaveCount(2);
+  await expect(
+    retained.getByRole("checkbox", { name: "Local text only", exact: true }),
+  ).toBeChecked();
+  await compare
+    .getByLabel("Attach files to comparison", { exact: true })
+    .setInputFiles({
+      name: "comparison-filter.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(png, "base64"),
+    });
+  await compare
+    .getByLabel("Comparison prompt")
+    .fill("Analyze this screenshot with the selected models");
+  const startCompare = compare.getByRole("button", {
+    name: "Compare models",
+    exact: true,
+  });
+  await expect(startCompare).toBeDisabled();
+  await retained
+    .getByRole("checkbox", { name: "Local text only", exact: true })
+    .click();
+  await expect(retained.getByRole("checkbox")).toHaveCount(1);
+  await retained
+    .getByRole("checkbox", { name: "Local text alternative", exact: true })
+    .click();
+  await expect(retained).toHaveCount(0);
+  const search = candidates.getByRole("searchbox", {
+    name: "Search comparison models",
+    exact: true,
+  });
+  await search.fill("VISION ONE");
+  await candidates
+    .getByRole("checkbox", { name: "Vendor: Vision One", exact: true })
+    .check();
+  await search.fill("vendor/vision-two");
+  await expect(
+    retained.getByRole("checkbox", { name: "Vendor: Vision One", exact: true }),
+  ).toBeChecked();
+  await candidates
+    .getByRole("checkbox", { name: "Vendor: Vision Two", exact: true })
+    .check();
+  await expect(startCompare).toBeEnabled();
+  await search.fill("");
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.screenshot({
+      path: `../artifacts/image-filter-compare-${info.project.name}-${scheme}.png`,
+    });
+  }
+  await compareFilter.uncheck();
+  await expect(
+    candidates.getByRole("checkbox", { name: "Local text only", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Mode", { exact: true }).selectOption("chat");
+  await expect(picker).toHaveValue("Vision One");
+  await picker.click();
+  await expect(filter).not.toBeChecked();
+  await expect(popup.getByRole("option")).toHaveCount(6);
+  expect(generations).toEqual([]);
+  expect(catalogReads).toBe(reads);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("processing dots track each answer and response copy waits for terminal text", async ({
   page,
 }, info) => {

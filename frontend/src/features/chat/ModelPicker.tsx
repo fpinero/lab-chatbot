@@ -1,17 +1,26 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { copy } from "../../lib/copy";
+import {
+  filterModelChoices,
+  modelInputLabel,
+  supportsTextAndImage,
+  type ModelChoice,
+} from "../../lib/modelCapabilities";
 
-type Choice = { id: string; name: string };
 export default function ModelPicker({
   models,
   value,
   onChange,
   favorites,
+  imageOnly,
+  onImageOnlyChange,
 }: {
-  models: Choice[];
+  models: ModelChoice[];
   value: string;
   onChange: (id: string) => void;
   favorites: string[];
+  imageOnly: boolean;
+  onImageOnlyChange: (checked: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -22,18 +31,9 @@ export default function ModelPicker({
   const id = useId();
   const selected = models.find((model) => model.id === value);
   const filtered = useMemo(() => {
-    const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-    return models
-      .filter((model) =>
-        terms.every((term) =>
-          `${model.name} ${model.id}`.toLocaleLowerCase().includes(term),
-        ),
-      )
-      .sort(
-        (a, b) =>
-          Number(favorites.includes(b.id)) - Number(favorites.includes(a.id)),
-      );
-  }, [models, query, favorites]);
+    return filterModelChoices(models, query, imageOnly, favorites);
+  }, [models, query, imageOnly, favorites]);
+  useEffect(() => setHighlight(0), [imageOnly]);
   useEffect(() => {
     if (!open) return;
     const dismiss = (event: PointerEvent) => {
@@ -53,7 +53,7 @@ export default function ModelPicker({
     setHighlight(0);
     setOpen(true);
   }
-  function choose(model: Choice) {
+  function choose(model: ModelChoice) {
     onChange(model.id);
     setOpen(false);
     setQuery("");
@@ -95,7 +95,11 @@ export default function ModelPicker({
                 )
               : value
         }
-        title={selected?.name}
+        title={
+          selected
+            ? `${selected.name} · ${modelInputLabel(selected)}`
+            : undefined
+        }
         onFocus={show}
         onClick={() => {
           if (!open) show();
@@ -112,7 +116,13 @@ export default function ModelPicker({
             if (!open) {
               show();
               setHighlight(
-                event.key === "ArrowUp" ? Math.max(0, models.length - 1) : 0,
+                event.key === "ArrowUp"
+                  ? Math.max(
+                      0,
+                      filterModelChoices(models, "", imageOnly, favorites)
+                        .length - 1,
+                    )
+                  : 0,
               );
             } else
               setHighlight((current) =>
@@ -148,9 +158,35 @@ export default function ModelPicker({
       </svg>
       <span className="sr-only" id={`${id}-selected`}>
         {copy.model}: {selected?.name ?? value}
+        {selected ? ` · ${modelInputLabel(selected)}` : ""}
       </span>
       {open && (
         <div className="model-popup">
+          <label className="model-image-filter">
+            <input
+              type="checkbox"
+              checked={imageOnly}
+              onChange={(event) => {
+                setHighlight(0);
+                onImageOnlyChange(event.target.checked);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.preventDefault();
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  input.current?.focus();
+                  setOpen(false);
+                }
+              }}
+            />
+            {copy.imageModelsOnly}
+          </label>
+          {imageOnly && selected && !supportsTextAndImage(selected) && (
+            <p className="model-filter-notice">
+              {copy.selectedOutsideImageFilter}
+            </p>
+          )}
           <div
             id={`${id}-list`}
             role="listbox"
@@ -186,6 +222,9 @@ export default function ModelPicker({
                   <small>
                     {publisher} · {model.id}
                   </small>
+                  <small className="model-input-badge">
+                    {modelInputLabel(model)}
+                  </small>
                 </div>
               );
             })}
@@ -193,7 +232,9 @@ export default function ModelPicker({
           <p role="status">
             {filtered.length
               ? copy.modelCount(filtered.length)
-              : copy.noMatchingModels}
+              : imageOnly
+                ? copy.noMatchingImageModels
+                : copy.noMatchingModels}
           </p>
         </div>
       )}

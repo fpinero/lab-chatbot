@@ -82,6 +82,7 @@ export default function Workspace({
   );
   const [answers, setAnswers] = useState<RunInfo[]>([]);
   const [modelId, setModelId] = useState("");
+  const [imageModelsOnly, setImageModelsOnly] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const favoritePending = useRef(false);
@@ -885,6 +886,8 @@ export default function Workspace({
               value={modelId}
               onChange={setModelId}
               favorites={favorites}
+              imageOnly={imageModelsOnly}
+              onImageOnlyChange={setImageModelsOnly}
             />
           </div>
         </div>
@@ -1280,6 +1283,9 @@ export default function Workspace({
             key={`comparison-${draftVersion}`}
             hidden={mode !== "compare"}
             catalog={catalog}
+            favorites={favorites}
+            imageOnly={imageModelsOnly}
+            onImageOnlyChange={setImageModelsOnly}
             conversation={conversation}
             replay={compareReplay}
             clearReplay={() => setCompareReplay(null)}
