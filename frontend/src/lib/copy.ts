@@ -106,6 +106,18 @@ export const copy = {
     "Documents are extracted locally and sent as text. Screenshots require image-input support.",
   attachmentHelp: "About attachments",
   closeAttachmentHelp: "Close attachment help",
+  openImagePreview: "Preview image",
+  closeImagePreview: "Close image preview",
+  previewZoomControls: "Image zoom controls",
+  previewZoomIn: "Zoom in",
+  previewZoomOut: "Zoom out",
+  previewFit: "Fit to screen",
+  previewActualSize: "Actual size",
+  previewZoomLevel: "Zoom level",
+  previewImageArea: "Image preview area",
+  previewLoading: "Loading image...",
+  previewUnavailable:
+    "This image is unavailable or your session has expired. Close the preview and sign in again if needed.",
   previewTruncated:
     "Preview shortened; the full extracted text is retained for context.",
   uploadFailed: "Upload failed. Check the file format and configured limits.",

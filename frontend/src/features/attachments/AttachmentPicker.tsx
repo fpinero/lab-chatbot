@@ -14,6 +14,7 @@ import {
   type UploadLimits,
 } from "../../lib/api";
 import { copy } from "../../lib/copy";
+import ImagePreviewDialog from "./ImagePreviewDialog";
 
 export function AttachmentPreview({
   items,
@@ -24,12 +25,79 @@ export function AttachmentPreview({
   onRemove?: (id: string) => void;
   removeDisabled?: boolean;
 }) {
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const scrollPositions = useRef<
+    { element: HTMLElement; top: number; left: number }[]
+  >([]);
+  const windowPosition = useRef({ x: 0, y: 0 });
+  const preview = items.find(
+    (item) => item.id === previewId && item.kind === "image",
+  );
+  useEffect(() => {
+    if (previewId && !preview) setPreviewId(null);
+  }, [previewId, preview]);
+  const dismissPreview = useCallback(() => setPreviewId(null), []);
+  const restorePreviewFocus = useCallback(() => {
+    opener.current?.isConnected &&
+      opener.current.focus({ preventScroll: true });
+    for (const { element, top, left } of scrollPositions.current) {
+      if (element.isConnected) {
+        element.scrollTop = top;
+        element.scrollLeft = left;
+      }
+    }
+    const { x, y } = windowPosition.current;
+    if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
+  }, []);
   return (
     <div className="attachment-list">
+      {preview && (
+        <ImagePreviewDialog
+          key={preview.id}
+          attachment={preview}
+          onDismiss={dismissPreview}
+          restoreFocus={restorePreviewFocus}
+        />
+      )}
       {items.map((item) => (
         <div className="attachment-item" key={item.id}>
           {item.kind === "image" && (
-            <img src={`/api/attachments/${item.id}`} alt={item.display_name} />
+            <button
+              type="button"
+              className="attachment-image-button"
+              aria-label={`${copy.openImagePreview}: ${item.display_name}`}
+              title={copy.openImagePreview}
+              onClick={(event) => {
+                opener.current = event.currentTarget;
+                scrollPositions.current = [];
+                for (
+                  let element = event.currentTarget.parentElement;
+                  element;
+                  element = element.parentElement
+                ) {
+                  if (
+                    element.scrollHeight > element.clientHeight ||
+                    element.scrollWidth > element.clientWidth
+                  )
+                    scrollPositions.current.push({
+                      element,
+                      top: element.scrollTop,
+                      left: element.scrollLeft,
+                    });
+                }
+                windowPosition.current = {
+                  x: window.scrollX,
+                  y: window.scrollY,
+                };
+                setPreviewId(item.id);
+              }}
+            >
+              <img
+                src={`/api/attachments/${encodeURIComponent(item.id)}`}
+                alt={item.display_name}
+              />
+            </button>
           )}
           <div>
             <strong>{item.display_name}</strong>

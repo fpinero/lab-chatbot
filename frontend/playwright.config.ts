@@ -9,6 +9,9 @@ const instances = [
   "polish-desktop",
   "polish-mobile",
   "polish-pixel-10",
+  "preview-desktop",
+  "preview-mobile",
+  "preview-pixel-10",
 ].map((name, index) => ({
   name,
   apiPort: apiPort + index * 10,
@@ -21,7 +24,11 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
-      testIgnore: ["**/mobile-ux.spec.ts", "**/ui-polish.spec.ts"],
+      testIgnore: [
+        "**/mobile-ux.spec.ts",
+        "**/ui-polish.spec.ts",
+        "**/image-preview.spec.ts",
+      ],
       use: {
         ...devices["Desktop Chrome"],
         baseURL: `http://127.0.0.1:${instances[0].uiPort}`,
@@ -33,6 +40,7 @@ export default defineConfig({
         "**/mobile-ux.spec.ts",
         "**/clipboard.spec.ts",
         "**/ui-polish.spec.ts",
+        "**/image-preview.spec.ts",
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -69,6 +77,24 @@ export default defineConfig({
             }
           : {}),
         baseURL: `http://127.0.0.1:${instances[index + 3].uiPort}`,
+      },
+    })),
+    ...["desktop", "mobile", "pixel-10"].map((name, index) => ({
+      name: `preview-${name}`,
+      testMatch: "**/image-preview.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(name !== "desktop"
+          ? {
+              viewport: {
+                width: name === "mobile" ? 360 : 412,
+                height: name === "mobile" ? 740 : 924,
+              },
+              isMobile: true,
+              hasTouch: true,
+            }
+          : {}),
+        baseURL: `http://127.0.0.1:${instances[index + 6].uiPort}`,
       },
     })),
   ],

@@ -954,6 +954,129 @@ button:disabled {
   object-fit: contain;
   flex-shrink: 0;
 }
+.attachment-image-button {
+  min-width: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: zoom-in;
+}
+.image-preview-dialog {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  padding: max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.image-preview-dialog[open] {
+  display: grid;
+  place-items: center;
+}
+.image-preview-dialog::backdrop {
+  background: #000b;
+}
+.image-preview-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 100%);
+  height: min(900px, 100%);
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px #0005;
+}
+.image-preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 0;
+  flex-shrink: 0;
+}
+.image-preview-heading h2 {
+  min-width: 0;
+  max-height: 4.5em;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 0;
+}
+.image-preview-dialog button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+}
+.image-preview-dialog button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.image-preview-heading button {
+  flex-shrink: 0;
+  font-size: 24px;
+}
+.image-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 12px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.image-preview-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y pinch-zoom;
+  background: #0002;
+}
+.image-preview-viewport > p {
+  margin: 16px;
+  font-size: 13px;
+}
+.image-preview-canvas {
+  display: grid;
+  place-items: center;
+}
+.image-preview-canvas[hidden] {
+  display: none;
+}
+.image-preview-canvas img {
+  display: block;
+  max-width: none;
+  max-height: none;
+  user-select: none;
+}
+@media (prefers-color-scheme: dark) {
+  .image-preview-dialog {
+    --surface: #213229;
+    --ink: #e0e8dd;
+    --border: #465e4a;
+    --muted: #a9bdac;
+  }
+}
 .attachment-item strong {
   font-weight: 600;
   overflow-wrap: anywhere;
