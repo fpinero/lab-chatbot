@@ -8,6 +8,8 @@ The owner prioritized mobile reading space and model search ahead of the remaini
 
 ## External verification prerequisites
 
+- [ ] Verify and deploy authenticated attachment image previews for drafts/history with fit/zoom/scroll, accessible dismissal and preserved chat state.
+
 - [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 21; physical platform/browser checks remain separate.
 
 

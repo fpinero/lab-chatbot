@@ -90,3 +90,11 @@
 ## 2026-11-09: Await the initial catalog before testing manual refresh
 
 - A subsequent full run exposed an existing Image refresh test race. Its trace contained initial catalog GETs but no manual refresh POST: the test observed an enabled control before the initial catalog's synthetic cooldown effect finished, then clicked inside that cooldown. Await the initial selected image model and give that initial fixture zero cooldown, keeping the explicit manual 429/503 retry windows and every feedback/recovery assertion intact. This separates initialization from the manual-refresh behavior under test without changing runtime code, increasing timeouts or adding retries.
+
+## 2026-11-14: Isolate new upload workflows from existing browser rate budgets
+
+- The standalone preview workflows passed, but the complete suite exhausted the shared polish fixture's real upload-rate budget and caused a later existing removal test to receive a legitimate 429. Keep runtime limits intact and give the preview scenarios separate per-device API/UI instances, sessions, queues and storage. Preserve all existing assertions and timeouts rather than increasing upload quotas or retrying through the limit.
+
+## 2026-11-14: Verify native-dialog focus with real browsers
+
+- Native modal inertness does not guarantee the desired in-page Tab/Shift+Tab cycle in every browser context. Loop the viewer's enabled controls and scroll region explicitly, and verify Escape, direct-backdrop dismissal, return focus and reading-position restoration in actual browsers. Keep jsdom's dialog-method shim confined to unit tests and dispose mounted views before removing that shim.

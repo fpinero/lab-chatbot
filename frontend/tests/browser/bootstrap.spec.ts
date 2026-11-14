@@ -150,6 +150,21 @@ test("attachments and independent comparison cards survive reload and continue i
   await expect(
     panel.getByText(`fixture-${info.project.name}.txt`, { exact: true }),
   ).toBeVisible();
+  await panel
+    .getByRole("button", {
+      name: `Preview image: fixture-${info.project.name}.png`,
+      exact: true,
+    })
+    .click();
+  const preview = page.getByRole("dialog", {
+    name: `fixture-${info.project.name}.png`,
+    exact: true,
+  });
+  await expect(preview.getByRole("img")).toBeVisible();
+  await preview
+    .getByRole("button", { name: "Close image preview", exact: true })
+    .press("Escape");
+  expect(dispatches).toBe(0);
   await panel.getByLabel("Local brief", { exact: true }).check();
   await page.getByLabel("Mode", { exact: true }).selectOption("chat");
   await expect(page.getByLabel("Message", { exact: true })).toHaveValue(
@@ -207,6 +222,17 @@ test("attachments and independent comparison cards survive reload and continue i
   await expect(
     results.getByRole("status").filter({ hasText: "Completed" }),
   ).toHaveCount(3);
+  await panel
+    .getByRole("button", {
+      name: `Preview image: fixture-${info.project.name}.png`,
+      exact: true,
+    })
+    .click();
+  await expect(preview.getByRole("img")).toBeVisible();
+  await preview
+    .getByRole("button", { name: "Close image preview", exact: true })
+    .click();
+  expect(dispatches).toBe(1);
   await results
     .getByRole("article")
     .first()
