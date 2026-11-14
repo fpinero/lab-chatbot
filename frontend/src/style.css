@@ -1404,7 +1404,7 @@ button:disabled {
   position: relative;
   min-width: 0;
 }
-.model-picker input {
+.model-picker input[role="combobox"] {
   width: 100%;
   min-height: 44px;
   font: inherit;
@@ -1436,10 +1436,14 @@ button:disabled {
   border-radius: 10px;
   box-shadow: 0 8px 32px #0003;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(62dvh, 520px);
 }
 .model-popup [role="listbox"] {
   max-height: min(42dvh, 340px);
   overflow-y: auto;
+  min-height: 0;
 }
 .model-popup [role="option"] {
   min-height: 54px;
@@ -1461,6 +1465,71 @@ button:disabled {
 .model-popup p {
   margin: 0;
   padding: 8px 12px;
+  flex-shrink: 0;
+}
+.model-image-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  flex-shrink: 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+.model-popup > .model-image-filter {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.model-image-filter input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: #34765b;
+}
+.model-popup .model-filter-notice {
+  color: var(--muted);
+}
+.model-input-badge {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.candidate-filter-controls,
+.candidate-model-count,
+.candidate-retained {
+  grid-column: 1 / -1;
+}
+.candidate-filter-controls .candidate-search {
+  display: flex;
+  flex-direction: column;
+}
+.candidate-search input {
+  width: min(100%, 480px);
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+}
+.candidate-picker .model-image-filter,
+.candidate-picker > label,
+.candidate-retained > label {
+  min-height: 44px;
+}
+.candidate-retained {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: 7px;
+}
+.candidate-retained > p {
+  grid-column: 1 / -1;
+  font-weight: 600;
 }
 .model-popup [data-highlighted="true"] {
   background: #e3eee0;
@@ -1516,7 +1585,7 @@ button:disabled {
   text-decoration: underline;
 }
 @media (max-width: 760px) {
-  .model-picker input {
+  .model-picker input[role="combobox"] {
     font-size: 16px;
   }
   .model-bar .mode-select {
@@ -1529,6 +1598,9 @@ button:disabled {
   }
   .model-bar .mode-select option {
     font-size: 18px;
+  }
+  .candidate-retained {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (prefers-color-scheme: dark) {

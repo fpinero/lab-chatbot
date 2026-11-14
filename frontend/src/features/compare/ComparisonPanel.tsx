@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ApiError,
   chatApi,
@@ -13,6 +20,11 @@ import {
   type RunInfo,
 } from "../../lib/api";
 import { copy } from "../../lib/copy";
+import {
+  filterModelChoices,
+  modelInputLabel,
+  type ModelChoice,
+} from "../../lib/modelCapabilities";
 import AttachmentPicker, {
   AttachmentPreview,
 } from "../attachments/AttachmentPicker";
@@ -22,6 +34,9 @@ import SavedPrompt from "../chat/SavedPrompt";
 export default function ComparisonPanel({
   hidden,
   catalog,
+  favorites,
+  imageOnly,
+  onImageOnlyChange,
   conversation,
   replay,
   clearReplay,
@@ -32,6 +47,9 @@ export default function ComparisonPanel({
 }: {
   hidden: boolean;
   catalog: CatalogInfo;
+  favorites: string[];
+  imageOnly: boolean;
+  onImageOnlyChange: (checked: boolean) => void;
   conversation: ConversationInfo | null;
   replay: RunInfo | null;
   clearReplay: () => void;
@@ -44,6 +62,16 @@ export default function ComparisonPanel({
     catalog.models.slice(0, 2).map((model) => model.id),
   );
   const [draft, setDraft] = useState("");
+  const [modelQuery, setModelQuery] = useState("");
+  const modelSupportId = useId();
+  const matchingModels = useMemo(
+    () => filterModelChoices(catalog.models, modelQuery, imageOnly, favorites),
+    [catalog.models, modelQuery, imageOnly, favorites],
+  );
+  const matchingIds = new Set(matchingModels.map((model) => model.id));
+  const retainedModels = catalog.models.filter(
+    (model) => selected.includes(model.id) && !matchingIds.has(model.id),
+  );
   const [systemPrompt, setSystemPrompt] = useState("");
   const [maximum, setMaximum] = useState(2048);
   const [temperature, setTemperature] = useState("");
@@ -263,6 +291,35 @@ export default function ComparisonPanel({
     }
   }
 
+  function modelChoice(model: ModelChoice) {
+    const supportId = `${modelSupportId}-${encodeURIComponent(model.id)}`;
+    return (
+      <label key={model.id}>
+        <input
+          type="checkbox"
+          aria-label={model.name}
+          aria-describedby={supportId}
+          checked={selected.includes(model.id)}
+          onChange={() =>
+            setSelected((values) =>
+              values.includes(model.id)
+                ? values.filter((id) => id !== model.id)
+                : values.length < 4
+                  ? [...values, model.id]
+                  : values,
+            )
+          }
+        />
+        <span>
+          {model.name}
+          <small className="model-input-badge" id={supportId}>
+            {modelInputLabel(model)}
+          </small>
+        </span>
+      </label>
+    );
+  }
+
   return (
     <section
       hidden={hidden}
@@ -272,24 +329,42 @@ export default function ComparisonPanel({
       <div className="comparison-scroll">
         <fieldset className="candidate-picker">
           <legend>{copy.compareModels}</legend>
-          {catalog.models.map((model) => (
-            <label key={model.id}>
+          <div className="candidate-filter-controls">
+            <label className="candidate-search">
+              {copy.comparisonModelSearch}
+              <input
+                type="search"
+                value={modelQuery}
+                onChange={(event) => setModelQuery(event.target.value)}
+              />
+            </label>
+            <label className="model-image-filter">
               <input
                 type="checkbox"
-                checked={selected.includes(model.id)}
-                onChange={() =>
-                  setSelected((values) =>
-                    values.includes(model.id)
-                      ? values.filter((id) => id !== model.id)
-                      : values.length < 4
-                        ? [...values, model.id]
-                        : values,
-                  )
-                }
+                checked={imageOnly}
+                onChange={(event) => onImageOnlyChange(event.target.checked)}
               />
-              {model.name}
+              {copy.imageModelsOnly}
             </label>
-          ))}
+          </div>
+          <p className="candidate-model-count" role="status">
+            {matchingModels.length
+              ? copy.modelCount(matchingModels.length)
+              : imageOnly
+                ? copy.noMatchingImageModels
+                : copy.noMatchingModels}
+          </p>
+          {retainedModels.length > 0 && (
+            <div
+              className="candidate-retained"
+              role="group"
+              aria-label={copy.selectedOutsideFilter}
+            >
+              <p>{copy.selectedOutsideFilter}</p>
+              {retainedModels.map(modelChoice)}
+            </div>
+          )}
+          {matchingModels.map(modelChoice)}
           {selected
             .filter((id) => !catalog.models.some((model) => model.id === id))
             .map((id) => (
