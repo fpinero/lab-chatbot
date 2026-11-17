@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     access_issuer: str = ""
     access_audience: str = ""
     access_owner_subject: str = ""
-    session_idle_seconds: int = Field(default=1800, ge=1, le=43200)
+    session_idle_seconds: int = Field(default=28800, ge=1, le=43200)
     session_absolute_seconds: int = Field(default=43200, ge=1, le=604800)
     trusted_proxy_networks: list[str] = Field(default_factory=list)
 
