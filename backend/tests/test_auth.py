@@ -96,6 +96,34 @@ def test_only_token_hash_is_stored_and_session_survives_restart(
         assert client.get("/api/auth/session").json()["owner_id"] == "primary"
 
 
+@pytest.mark.parametrize("elapsed,status", [(31 * 60, 200), (8 * 3600 - 1, 200), (8 * 3600, 401)])
+def test_default_eight_hour_idle_expiry(
+    settings_factory: Callable[..., Settings], elapsed: int, status: int
+) -> None:
+    now = datetime(2031, 7, 1, tzinfo=UTC)
+    config = settings_factory()
+    assert config.session_idle_seconds == 8 * 3600
+    assert config.session_absolute_seconds == 12 * 3600
+    with TestClient(create_app(config, clock=lambda: now)) as client:
+        signin(client)
+        now += timedelta(seconds=elapsed)
+        assert client.get("/api/auth/session").status_code == status
+
+
+def test_default_twelve_hour_absolute_expiry(settings_factory: Callable[..., Settings]) -> None:
+    now = datetime(2031, 7, 1, tzinfo=UTC)
+    with TestClient(create_app(settings_factory(), clock=lambda: now)) as client:
+        response = client.post("/api/auth/login", json={"password": TEST_PASSWORD}, headers=ORIGIN)
+        assert response.status_code == 200
+        assert "Max-Age=43200" in response.headers["set-cookie"]
+        now += timedelta(hours=7)
+        assert client.get("/api/auth/session").status_code == 200
+        now += timedelta(hours=5, seconds=-1)
+        assert client.get("/api/auth/session").status_code == 200
+        now += timedelta(seconds=1)
+        assert client.get("/api/auth/session").status_code == 401
+
+
 def test_idle_and_absolute_expiry(settings_factory: Callable[..., Settings]) -> None:
     now = datetime(2031, 7, 1, tzinfo=UTC)
     app = create_app(
