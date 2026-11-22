@@ -106,6 +106,9 @@ class AttachmentService:
             raise AuthError(404, "not_found", "Attachment is unavailable.")
         return target
 
+    def content(self, item: Attachment) -> bytes:
+        return self.path(item).read_bytes()
+
     def reserve_upload(self, owner: str) -> None:
         now = self.now()
         with Session(self.engine) as db:
@@ -481,12 +484,7 @@ class AttachmentService:
                                 raise AuthError(
                                     422, "attachment_unavailable", "Saved image is unavailable."
                                 )
-                            path = self.path(asset)
-                            if path.stat().st_size != asset.size:
-                                raise AuthError(
-                                    409, "attachment_changed", "Saved image data has changed."
-                                )
-                            data = path.read_bytes()
+                            data = self.content(asset)
                             if (
                                 len(data) != asset.size
                                 or hashlib.sha256(data).hexdigest() != asset.sha256

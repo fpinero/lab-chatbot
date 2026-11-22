@@ -98,3 +98,8 @@
 ## 2026-11-14: Verify native-dialog focus with real browsers
 
 - Native modal inertness does not guarantee the desired in-page Tab/Shift+Tab cycle in every browser context. Loop the viewer's enabled controls and scroll region explicitly, and verify Escape, direct-backdrop dismissal, return focus and reading-position restoration in actual browsers. Keep jsdom's dialog-method shim confined to unit tests and dispose mounted views before removing that shim.
+
+## 2026-11-22: Verify temporary retention at every processing boundary
+
+- A no-history flag cannot establish no durable content when multipart spooling, extraction work files, request snapshots and streaming checkpoints already persist data. Route temporary uploads through bounded memory buffering and subprocess pipes, keep worker databases/journals in memory, and prove both database-row and file absence with real uploads. Keep opaque accounting and shared admission independent from content lifetime.
+- Give temporary browser workflows separate per-device API/UI/data/session instances. Their no-history assertions require a stable baseline independently of preview fixtures that create saved chats. Preserve runtime quotas and assertions. On mobile, exiting a temporary chat already closes navigation; await the closed state instead of racing a second click against the disappearing Close button. Send Escape to the actual focused control and scope settings selectors to the Chat composer.

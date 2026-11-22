@@ -1,4 +1,5 @@
 from typing import Literal, cast
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse
@@ -9,12 +10,21 @@ from starlette.exceptions import HTTPException
 
 from app.auth.service import AuthError
 from app.services.attachments import AttachmentInfo, AttachmentService
+from app.services.temporary import TemporaryChats
 
 router = APIRouter(prefix="/api/attachments")
 
 
 def service(request: Request) -> AttachmentService:
     return cast(AttachmentService, request.app.state.attachments)
+
+
+def selected_service(identifier: str, request: Request) -> AttachmentService:
+    if identifier.startswith("tmp_"):
+        return cast(TemporaryChats, request.app.state.temporary).attachment(
+            identifier, request.state.owner_session
+        )
+    return service(request)
 
 
 class UploadLimits(BaseModel):
@@ -96,16 +106,25 @@ async def upload(request: Request) -> list[AttachmentInfo]:
 
 @router.get("/{attachment_id}/metadata", response_model=AttachmentInfo)
 def metadata(attachment_id: str, request: Request) -> AttachmentInfo:
-    assets = service(request)
+    assets = selected_service(attachment_id, request)
     with Session(assets.engine) as db:
         return assets.info(assets.get(db, request.state.owner_session.owner_id, attachment_id))
 
 
 @router.get("/{attachment_id}")
-def download(attachment_id: str, request: Request) -> FileResponse:
-    assets = service(request)
+def download(attachment_id: str, request: Request) -> Response:
+    assets = selected_service(attachment_id, request)
     with Session(assets.engine) as db:
         item = assets.get(db, request.state.owner_session.owner_id, attachment_id)
+        if attachment_id.startswith("tmp_"):
+            return Response(
+                assets.content(item),
+                media_type=item.mime,
+                headers={
+                    "Content-Disposition": "inline; filename*=UTF-8''"
+                    + quote(item.display_name, safe="")
+                },
+            )
         path = assets.path(item)
         if not path.is_file():
             raise AuthError(404, "not_found", "Attachment is unavailable.")
@@ -124,5 +143,7 @@ def download(attachment_id: str, request: Request) -> FileResponse:
 
 @router.delete("/{attachment_id}", status_code=204)
 def remove(attachment_id: str, request: Request) -> Response:
-    service(request).remove(request.state.owner_session.owner_id, attachment_id)
+    selected_service(attachment_id, request).remove(
+        request.state.owner_session.owner_id, attachment_id
+    )
     return Response(status_code=204)

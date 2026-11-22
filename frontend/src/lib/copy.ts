@@ -159,6 +159,23 @@ export const copy = {
   approximate: "Approximate upper estimate",
   savedInput: "New run from saved input",
   newConversation: "New conversation",
+  temporaryChat: "Temporary chat",
+  temporaryDetails: "About temporary chats",
+  editTemporaryPrompt:
+    "Edit this temporary prompt. The original answer stays only until this chat ends.",
+  temporaryContextHelp:
+    "Only the current prompt, its attachments and System prompt are sent. Turn off to use earlier messages in this temporary chat.",
+  endTemporary: "End temporary chat",
+  endTemporaryShort: "End",
+  temporaryBadge: "Temporary · Not saved",
+  temporaryHelp:
+    "Messages, System prompt and files stay in memory and never enter saved history or backups. Only content-free usage records are retained. Content is still sent to OpenRouter and the selected provider.",
+  temporaryLifetime:
+    "Leaving, reloading or signing out discards this chat. A lost connection expires after 30 minutes. Compare and Image are available after leaving temporary mode.",
+  temporaryConfirm:
+    "Discard this temporary chat and its files? It cannot be recovered. Any active generation will be stopped; charges may still apply.",
+  temporaryExpired:
+    "The temporary chat has ended. Its messages and files cannot be recovered.",
   desktopEnterHelp: "Enter to send. Shift+Enter for a new line.",
   touchEnterHelp: "Enter for a new line. Use Send to send your message.",
   search: "Search history",

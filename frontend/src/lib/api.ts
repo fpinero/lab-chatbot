@@ -86,6 +86,53 @@ export type ConversationDetail = components["schemas"]["ConversationDetail"];
 export type RunInfo = components["schemas"]["RunInfo"];
 export type RunStart = components["schemas"]["RunStart"];
 export type UsageInfo = components["schemas"]["UsageInfo"];
+export const temporaryApi = {
+  removeFile: (id: string) => request<void>(`/attachments/${id}`, "DELETE"),
+  create: () => request<ConversationInfo>("/temporary-chats", "POST"),
+  close: (id: string) => request<void>(`/temporary-chats/${id}`, "DELETE"),
+  touch: (id: string) => request<void>(`/temporary-chats/${id}/touch`, "POST"),
+  submit: (id: string, body: RunStart) =>
+    request<RunInfo>(`/temporary-chats/${id}/runs`, "POST", body),
+  run: (id: string, run: string) =>
+    request<RunInfo>(`/temporary-chats/${id}/runs/${run}`),
+  cancel: (id: string, run: string) =>
+    request<RunInfo>(`/temporary-chats/${id}/runs/${run}/cancel`, "POST"),
+  reconcile: (id: string, run: string) =>
+    request<RunInfo>(`/temporary-chats/${id}/runs/${run}/reconcile`, "POST"),
+  upload: async (id: string, files: File[]) => {
+    const encoded = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<{ name: string; mime: string; data: string }>(
+            (resolve, reject) => {
+              const reader = new FileReader();
+              reader.onerror = () => reject(new Error(copy.uploadFailed));
+              reader.onload = () =>
+                resolve({
+                  name: file.name,
+                  mime: file.type,
+                  data: String(reader.result).split(",")[1],
+                });
+              reader.readAsDataURL(file);
+            },
+          ),
+      ),
+    );
+    return request<AttachmentInfo[]>(
+      `/temporary-chats/${id}/attachments`,
+      "POST",
+      { files: encoded },
+    );
+  },
+};
+export function discardTemporaryOnExit(id: string) {
+  void fetch(`/api/temporary-chats/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin",
+    keepalive: true,
+    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+  }).catch(() => {});
+}
 export const chatApi = {
   catalog: () => request<CatalogInfo>("/models"),
   refreshCatalog: () => request<CatalogInfo>("/models/refresh", "POST"),

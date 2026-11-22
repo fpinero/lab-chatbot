@@ -20,6 +20,7 @@ from app.api.attachments import router as attachment_router
 from app.api.chat import router as chat_router
 from app.api.comparisons import router as comparison_router
 from app.api.images import router as image_router
+from app.api.temporary import router as temporary_router
 from app.auth.service import AuthError, AuthService
 from app.body_limit import BodyLimitMiddleware
 from app.config import Settings
@@ -34,6 +35,7 @@ from app.services.comparisons import ComparisonService
 from app.services.image_catalog import ImageCatalog
 from app.services.images import ImageService
 from app.services.runs import RunService
+from app.services.temporary import TemporaryChats
 from app.version import image_version
 
 
@@ -113,6 +115,8 @@ def create_app(
                 engine, config, selected, app.state.catalog, now, app.state.attachments
             )
             app.state.comparisons = ComparisonService(app.state.runs)
+            app.state.temporary = TemporaryChats(app.state.runs)
+            app.state.temporary.recover()
             image_adapter = image_provider or (
                 MockImages() if config.provider_mode == "mock" else OpenRouterImages(config)
             )
@@ -132,11 +136,24 @@ def create_app(
                         logging.getLogger(__name__).warning("attachment_maintenance_failed")
 
             maintenance = asyncio.create_task(maintain_attachments())
+
+            async def maintain_temporary() -> None:
+                while True:
+                    await asyncio.sleep(30)
+                    try:
+                        await app.state.temporary.sweep()
+                    except Exception:
+                        logging.getLogger(__name__).warning("temporary_maintenance_failed")
+
+            temporary_maintenance = asyncio.create_task(maintain_temporary())
             try:
                 yield
             finally:
                 maintenance.cancel()
+                temporary_maintenance.cancel()
                 await asyncio.gather(maintenance, return_exceptions=True)
+                await asyncio.gather(temporary_maintenance, return_exceptions=True)
+                await app.state.temporary.sweep(all_chats=True)
                 await app.state.images.stop()
                 await app.state.runs.stop()
         finally:
@@ -187,7 +204,11 @@ def create_app(
                     auth.check_origin(request, required=request.method == "POST")
                 elif path not in {"/api/health/live", "/api/health/ready"}:
                     request.state.owner_session = await run_in_threadpool(
-                        auth.authenticate, request
+                        auth.authenticate,
+                        request,
+                        touch=not (
+                            path.startswith("/api/temporary-chats/") and path.endswith("/touch")
+                        ),
                     )
             response = await call_next(request)
         except AuthError as exc:
@@ -280,8 +301,9 @@ def create_app(
         return session_info(request.state.owner_session)
 
     @app.post("/api/auth/logout", status_code=204)
-    def logout(request: Request) -> Response:
+    async def logout(request: Request) -> Response:
         auth: AuthService = request.app.state.auth
+        await app.state.temporary.close_session(request.state.owner_session.token_hash)
         auth.logout(request.state.owner_session)
         response = Response(status_code=204)
         response.delete_cookie(
@@ -303,6 +325,7 @@ def create_app(
     app.include_router(attachment_router)
     app.include_router(comparison_router)
     app.include_router(image_router)
+    app.include_router(temporary_router)
 
     @app.api_route(
         "/api", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"], include_in_schema=False

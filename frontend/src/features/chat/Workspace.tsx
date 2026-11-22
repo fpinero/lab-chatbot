@@ -10,6 +10,8 @@ import {
 import {
   ApiError,
   chatApi,
+  temporaryApi,
+  discardTemporaryOnExit,
   type AttachmentInfo,
   type CatalogInfo,
   type ConversationInfo,
@@ -69,6 +71,10 @@ export default function Workspace({
   notice: string;
 }) {
   const [mode, setMode] = useState<"chat" | "compare" | "images">("chat");
+  const [temporaryId, setTemporaryId] = useState<string | null>(null);
+  const temporaryNow = useRef(temporaryId);
+  temporaryNow.current = temporaryId;
+  const temporaryContents = useRef(false);
   const [imagesVisited, setImagesVisited] = useState(false);
   const [draftVersion, setDraftVersion] = useState(0);
   const [files, setFiles] = useState<AttachmentInfo[]>([]);
@@ -140,6 +146,20 @@ export default function Workspace({
   const followOutput = useRef(true);
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const active = answers.find((run) => !terminal(run));
+  temporaryContents.current = !!(
+    answers.length ||
+    draft ||
+    files.length ||
+    systemPrompt
+  );
+  const runApi = temporaryId
+    ? {
+        submit: (body: RunStart) => temporaryApi.submit(temporaryId, body),
+        run: (id: string) => temporaryApi.run(temporaryId, id),
+        cancel: (id: string) => temporaryApi.cancel(temporaryId, id),
+        reconcile: (id: string) => temporaryApi.reconcile(temporaryId, id),
+      }
+    : chatApi;
   const incompatible =
     (editing?.run.attachments ?? files).some((item) => item.kind === "image") &&
     !!catalog?.models.find(
@@ -263,7 +283,7 @@ export default function Workspace({
     setEditing(null);
   }
 
-  function newConversation() {
+  function resetConversation() {
     if (submitting.current || uploading) return;
     focused.current = null;
     conversationEpoch.current += 1;
@@ -288,9 +308,98 @@ export default function Workspace({
     expandComposer();
   }
 
+  async function leaveTemporary() {
+    if (!temporaryId) return true;
+    if (temporaryContents.current && !window.confirm(copy.temporaryConfirm))
+      return false;
+    try {
+      await temporaryApi.close(temporaryId);
+      setTemporaryId(null);
+      resetConversation();
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 410) {
+        setTemporaryId(null);
+        resetConversation();
+        return true;
+      }
+      failed(error);
+      return false;
+    }
+  }
+  function newConversation() {
+    if (submitting.current || uploading) return;
+    if (temporaryId) {
+      void leaveTemporary().then((ok) => {
+        if (ok) resetConversation();
+      });
+    } else resetConversation();
+  }
+  async function startTemporary() {
+    if (submitting.current || uploading || busy || opening || active) return;
+    if (!(await leaveTemporary())) return;
+    setBusy(true);
+    try {
+      const item = await temporaryApi.create();
+      resetConversation();
+      setTemporaryId(item.id);
+      setConversation(item);
+      focused.current = item.id;
+    } catch (error) {
+      failed(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!temporaryId) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (temporaryContents.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    const pagehide = () => discardTemporaryOnExit(temporaryId);
+    const pageshow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setTemporaryId(null);
+        resetConversation();
+        setWarning(copy.temporaryExpired);
+      }
+    };
+    const timer = window.setInterval(() => {
+      void temporaryApi.touch(temporaryId).catch((error) => {
+        if (temporaryNow.current === temporaryId) failed(error);
+      });
+    }, 60000);
+    window.addEventListener("beforeunload", beforeUnload);
+    window.addEventListener("pagehide", pagehide);
+    window.addEventListener("pageshow", pageshow);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("pagehide", pagehide);
+      window.removeEventListener("pageshow", pageshow);
+      discardTemporaryOnExit(temporaryId);
+    };
+  }, [temporaryId]);
+
   function failed(error: unknown) {
+    if (
+      temporaryId &&
+      temporaryNow.current !== temporaryId &&
+      error instanceof ApiError &&
+      error.status === 410
+    )
+      return;
     if (error instanceof ApiError && error.status === 401) expired();
-    else setError(error instanceof ApiError ? error.message : copy.chatFailure);
+    else if (temporaryId && error instanceof ApiError && error.status === 410) {
+      setTemporaryId(null);
+      resetConversation();
+      setWarning(copy.temporaryExpired);
+    } else
+      setError(error instanceof ApiError ? error.message : copy.chatFailure);
   }
   function update(run: RunInfo) {
     if (focused.current !== run.conversation_id) return;
@@ -375,7 +484,9 @@ export default function Workspace({
   useEffect(() => {
     if (!active) return;
     let mounted = true;
-    const source = new EventSource(`/api/runs/${active.id}/events`);
+    const source = new EventSource(
+      `${temporaryId ? `/api/temporary-chats/${temporaryId}` : "/api"}/runs/${active.id}/events`,
+    );
     const receive = (event: MessageEvent<string>) => {
       if (!mounted) return;
       try {
@@ -405,8 +516,12 @@ export default function Workspace({
       source.close();
       expired();
     });
+    source.addEventListener("temporary.expired", () => {
+      source.close();
+      failed(new ApiError(410));
+    });
     source.onerror = () => {
-      void chatApi
+      void runApi
         .run(active.id)
         .then((run) => {
           if (!mounted) return;
@@ -426,7 +541,7 @@ export default function Workspace({
       mounted = false;
       source.close();
     };
-  }, [active?.id]);
+  }, [active?.id, temporaryId]);
 
   useEffect(() => {
     if (followOutput.current)
@@ -447,6 +562,7 @@ export default function Workspace({
 
   async function open(item: ConversationInfo) {
     if (submitting.current || uploading) return;
+    if (temporaryId && !(await leaveTemporary())) return;
     const epoch = ++conversationEpoch.current;
     setOpening(true);
     setError("");
@@ -549,7 +665,7 @@ export default function Workspace({
       if (pending.current?.fingerprint === fingerprint)
         body.idempotency_key = pending.current.body.idempotency_key;
       pending.current = { fingerprint, body };
-      const run = await chatApi.submit(body);
+      const run = await runApi.submit(body);
       accepted = true;
       followOutput.current = true;
       update(run);
@@ -588,7 +704,7 @@ export default function Workspace({
     if (!active) return;
     const epoch = conversationEpoch.current;
     try {
-      const saved = await chatApi.cancel(active.id);
+      const saved = await runApi.cancel(active.id);
       if (epoch !== conversationEpoch.current) return;
       update(saved);
       setWarning(copy.stopNotice);
@@ -760,6 +876,13 @@ export default function Workspace({
         >
           {copy.newConversation}
         </button>
+        <button
+          className="temporary-start"
+          disabled={busy || opening || uploading || !!active}
+          onClick={() => void startTemporary()}
+        >
+          {copy.temporaryChat}
+        </button>
         <label className="sr-only" htmlFor="search">
           {copy.search}
         </label>
@@ -856,7 +979,17 @@ export default function Workspace({
                 : copy.development}
           </span>
           <span className="version">{copy.version}</span>
-          <button className="sign-out" onClick={signOut}>
+          <button
+            className="sign-out"
+            disabled={busy || uploading}
+            onClick={() => {
+              if (temporaryId)
+                void leaveTemporary().then((ok) => {
+                  if (ok) signOut();
+                });
+              else signOut();
+            }}
+          >
             {copy.signOut}
           </button>
         </header>
@@ -867,11 +1000,21 @@ export default function Workspace({
           <select
             className="mode-select"
             id="mode"
-            disabled={opening}
+            disabled={opening || busy || uploading}
             value={mode}
             onChange={(event) => {
               const selectedMode = event.target.value as
                 "chat" | "compare" | "images";
+              if (temporaryId && selectedMode !== "chat") {
+                void leaveTemporary().then((ok) => {
+                  if (ok) {
+                    resetConversation();
+                    setMode(selectedMode);
+                    if (selectedMode === "images") setImagesVisited(true);
+                  }
+                });
+                return;
+              }
               setMode(selectedMode);
               if (selectedMode === "images") setImagesVisited(true);
             }}
@@ -891,6 +1034,24 @@ export default function Workspace({
             />
           </div>
         </div>
+        {temporaryId && (
+          <aside className="temporary-notice" aria-label={copy.temporaryChat}>
+            <strong>{copy.temporaryBadge}</strong>
+            <SidebarInfo label={copy.temporaryDetails}>
+              <p>{copy.temporaryHelp}</p>
+              <p>{copy.temporaryLifetime}</p>
+            </SidebarInfo>
+            <button
+              type="button"
+              aria-label={copy.endTemporary}
+              title={copy.endTemporary}
+              disabled={busy || uploading}
+              onClick={newConversation}
+            >
+              {copy.endTemporaryShort}
+            </button>
+          </aside>
+        )}
         <div
           hidden={mode !== "chat"}
           className="chat-scroll"
@@ -909,7 +1070,7 @@ export default function Workspace({
               <p>{copy.description}</p>
             </section>
           )}
-          {conversation && (
+          {conversation && !temporaryId && (
             <div className="conversation-actions">
               <strong>{conversation.title}</strong>
               <button className="plain-button" onClick={() => void rename()}>
@@ -968,21 +1129,23 @@ export default function Workspace({
                     >
                       {copy.edit}
                     </button>
-                    <button
-                      className="plain-button"
-                      disabled={busy || opening || !!active || !!editing}
-                      onClick={() => {
-                        setCompareReplay(run);
-                        setMode("compare");
-                      }}
-                    >
-                      {copy.compareSaved}
-                    </button>
+                    {!temporaryId && (
+                      <button
+                        className="plain-button"
+                        disabled={busy || opening || !!active || !!editing}
+                        onClick={() => {
+                          setCompareReplay(run);
+                          setMode("compare");
+                        }}
+                      >
+                        {copy.compareSaved}
+                      </button>
+                    )}
                     {run.accounting_state === "uncertain" && (
                       <button
                         className="plain-button"
                         onClick={() => {
-                          void chatApi
+                          void runApi
                             .reconcile(run.id)
                             .then(update)
                             .then(refreshUsage)
@@ -1049,7 +1212,9 @@ export default function Workspace({
           >
             {editing && (
               <div className="editing-notice">
-                <span>{copy.editPrompt}</span>
+                <span>
+                  {temporaryId ? copy.editTemporaryPrompt : copy.editPrompt}
+                </span>
                 <button
                   type="button"
                   className="plain-button"
@@ -1064,9 +1229,21 @@ export default function Workspace({
               key={draftVersion}
               compact
               items={files}
-              onChange={setFiles}
+              onChange={(next) => {
+                if (temporaryId)
+                  for (const file of files) {
+                    if (!next.some((item) => item.id === file.id))
+                      void temporaryApi.removeFile(file.id).catch(failed);
+                  }
+                setFiles(next);
+              }}
               label={copy.attachChat}
               pasteTarget={messageRef}
+              uploadFiles={
+                temporaryId
+                  ? (files) => temporaryApi.upload(temporaryId, files)
+                  : undefined
+              }
               disabled={busy || opening || !!editing}
               onFailure={failed}
               onBusyChange={setUploading}
@@ -1085,7 +1262,11 @@ export default function Workspace({
                     {copy.withoutPreviousContext}
                   </label>
                   <p id="context-mode-help" className="preference-hint">
-                    {editing ? copy.savedContextMode : copy.withoutContextHelp}
+                    {editing
+                      ? copy.savedContextMode
+                      : temporaryId
+                        ? copy.temporaryContextHelp
+                        : copy.withoutContextHelp}
                   </p>
                   {mobile && (
                     <label className="collapse-preference">
@@ -1271,7 +1452,9 @@ export default function Workspace({
                 </p>
                 {effectiveWithoutContext && (
                   <p id="message-context-help" className="sr-only">
-                    {copy.withoutContextHelp}
+                    {temporaryId
+                      ? copy.temporaryContextHelp
+                      : copy.withoutContextHelp}
                   </p>
                 )}
               </form>
