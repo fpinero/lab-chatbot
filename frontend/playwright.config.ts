@@ -12,6 +12,9 @@ const instances = [
   "preview-desktop",
   "preview-mobile",
   "preview-pixel-10",
+  "temporary-desktop",
+  "temporary-mobile",
+  "temporary-pixel-10",
 ].map((name, index) => ({
   name,
   apiPort: apiPort + index * 10,
@@ -28,6 +31,7 @@ export default defineConfig({
         "**/mobile-ux.spec.ts",
         "**/ui-polish.spec.ts",
         "**/image-preview.spec.ts",
+        "**/temporary-chat.spec.ts",
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -41,6 +45,7 @@ export default defineConfig({
         "**/clipboard.spec.ts",
         "**/ui-polish.spec.ts",
         "**/image-preview.spec.ts",
+        "**/temporary-chat.spec.ts",
       ],
       use: {
         ...devices["Desktop Chrome"],
@@ -95,6 +100,24 @@ export default defineConfig({
             }
           : {}),
         baseURL: `http://127.0.0.1:${instances[index + 6].uiPort}`,
+      },
+    })),
+    ...["desktop", "mobile", "pixel-10"].map((name, index) => ({
+      name: `temporary-${name}`,
+      testMatch: "**/temporary-chat.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(name !== "desktop"
+          ? {
+              viewport: {
+                width: name === "mobile" ? 360 : 412,
+                height: name === "mobile" ? 740 : 924,
+              },
+              isMobile: true,
+              hasTouch: true,
+            }
+          : {}),
+        baseURL: `http://127.0.0.1:${instances[index + 9].uiPort}`,
       },
     })),
   ],

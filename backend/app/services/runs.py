@@ -148,6 +148,7 @@ class RunService:
         self.slots = asyncio.Semaphore(2)
         self.tasks: dict[str, asyncio.Task[None]] = {}
         self.closing = False
+        self.additional_active: Callable[[], int] = lambda: 0
 
     def info(self, db: Session, run: Run) -> RunInfo:
         charge = db.scalar(select(Charge).where(Charge.run_id == run.id))
@@ -484,7 +485,7 @@ class RunService:
             )
             or 0
         )
-        if active + count > self.settings.max_queued_runs:
+        if active + self.additional_active() + count > self.settings.max_queued_runs:
             raise AuthError(429, "queue_full", "The generation queue is full. Try later.")
         rate_key = digest(f"generation:{owner}")
         bucket = db.get(AuthBucket, rate_key)

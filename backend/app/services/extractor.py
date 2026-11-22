@@ -1,10 +1,12 @@
 """Resource-bounded document/image preparation in a disposable subprocess."""
 
+import base64
 import json
 import logging
 import socket
 import sys
 import warnings
+from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -21,7 +23,9 @@ def deny_network(*args: object, **kwargs: object) -> None:
     raise Rejected("network_disabled")
 
 
-def extract(path: Path, output: Path, extension: str, limits: dict[str, int]) -> dict[str, object]:
+def extract(
+    path: Path | BytesIO, output: Path | BytesIO, extension: str, limits: dict[str, int]
+) -> dict[str, object]:
     text = ""
     notes: list[str] = []
     result: dict[str, object] = {"width": None, "height": None}
@@ -94,14 +98,18 @@ def extract(path: Path, output: Path, extension: str, limits: dict[str, int]) ->
                         for marker in [b"<!DOCTYPE", b"<!ENTITY", b"MACROENABLED"]
                     ):
                         raise Rejected("unsafe_document")
-        document = Document(str(path))
+        document = Document(path if isinstance(path, BytesIO) else str(path))
         chunks = [paragraph.text for paragraph in document.paragraphs]
         for table in document.tables:
             chunks.extend("\t".join(cell.text for cell in row.cells) for row in table.rows)
         text = "\n".join(chunks)
         notes.append("Text in drawings or other complex layouts may not be extracted.")
     else:
-        text = path.read_text(encoding="utf-8-sig")
+        text = (
+            path.getvalue().decode("utf-8-sig")
+            if isinstance(path, BytesIO)
+            else path.read_text(encoding="utf-8-sig")
+        )
         if "\x00" in text or text.lstrip().lower().startswith(("<!doctype html", "<html", "<svg")):
             raise Rejected("invalid_text")
     if len(text) > limits["characters"]:
@@ -120,6 +128,9 @@ def main() -> None:
         import resource
 
         resource.setrlimit(resource.RLIMIT_CPU, (6, 6))
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        if sys.argv[1] == "--memory":
+            resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
         if sys.platform.startswith("linux"):
             resource.setrlimit(resource.RLIMIT_DATA, (512 * 1024 * 1024, 512 * 1024 * 1024))
             resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
@@ -127,7 +138,16 @@ def main() -> None:
         pass
     socket.socket = deny_network  # type: ignore[misc, assignment]
     try:
-        value = extract(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3], json.loads(sys.argv[4]))
+        if sys.argv[1] == "--memory":
+            body = json.loads(sys.stdin.buffer.read(16 * 1024 * 1024))
+            data = base64.b64decode(body["data"], validate=True)
+            output = BytesIO()
+            value = extract(BytesIO(data), output, body["extension"], body["limits"])
+            value["data"] = base64.b64encode(output.getvalue() if value["image"] else data).decode()
+        else:
+            value = extract(
+                Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3], json.loads(sys.argv[4])
+            )
         print(json.dumps({"ok": True, **value}))
     except Rejected as exc:
         print(json.dumps({"ok": False, "code": str(exc)}))

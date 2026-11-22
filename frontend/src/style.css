@@ -1932,3 +1932,61 @@ button:disabled {
     padding-top: 8px;
   }
 }
+
+.temporary-start {
+  color: inherit;
+  border: 1px solid var(--border);
+  min-height: 44px;
+  margin-top: 4px;
+  width: 100%;
+  background: transparent;
+}
+.temporary-notice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.temporary-notice > strong {
+  font-size: 0.82rem;
+}
+.temporary-notice > button {
+  margin-left: auto;
+  min-height: 44px;
+}
+.temporary-notice summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.temporary-notice details[open] {
+  flex-basis: 100%;
+  order: 3;
+}
+.temporary-notice details p {
+  font-size: 0.85rem;
+  max-width: 70ch;
+}
+.temporary-notice {
+  flex-shrink: 0;
+}
+.temporary-notice .sidebar-info-trigger {
+  width: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+.temporary-notice .sidebar-info-trigger .eyebrow {
+  display: none;
+}
+.temporary-notice .sidebar-info-trigger::before {
+  content: "?";
+}

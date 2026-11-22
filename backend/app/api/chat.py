@@ -244,7 +244,10 @@ async def reconcile_run(run_id: str, request: Request) -> RunInfo:
 
 @router.get("/runs/{run_id}/events")
 async def run_events(run_id: str, request: Request) -> StreamingResponse:
-    service = runs(request)
+    return await stream_events(run_id, request, runs(request))
+
+
+async def stream_events(run_id: str, request: Request, service: RunService) -> StreamingResponse:
     auth: AuthService = request.app.state.auth
     initial = service.get(owner(request), run_id)
 
@@ -259,7 +262,13 @@ async def run_events(run_id: str, request: Request) -> StreamingResponse:
                     yield 'event: session.expired\ndata: {"code":"session_required"}\n\n'
                     return
                 last_auth = time.monotonic()
-            current = await run_in_threadpool(service.get, owner(request), run_id)
+            try:
+                current = await run_in_threadpool(service.get, owner(request), run_id)
+            except AuthError as exc:
+                if exc.status == 410:
+                    yield "event: temporary.expired\ndata: {}\n\n"
+                    return
+                raise
             if current.sequence != last_seq:
                 kind = "run.snapshot" if last_seq == -1 else "text.delta"
                 if last_seq != -1 and current.status in TERMINAL:

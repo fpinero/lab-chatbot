@@ -160,6 +160,7 @@ export default function AttachmentPicker({
   options,
   actions,
   pasteTarget,
+  uploadFiles = attachmentApi.upload,
 }: {
   items: AttachmentInfo[];
   onChange: (items: AttachmentInfo[]) => void;
@@ -173,6 +174,7 @@ export default function AttachmentPicker({
   options?: ReactNode;
   actions?: ReactNode;
   pasteTarget?: RefObject<HTMLTextAreaElement | null>;
+  uploadFiles?: (files: File[]) => Promise<AttachmentInfo[]>;
 }) {
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [busy, setBusy] = useState(false);
@@ -252,7 +254,7 @@ export default function AttachmentPicker({
       onBusyChange?.(true);
       setError("");
       try {
-        const result = await attachmentApi.upload(files);
+        const result = await uploadFiles(files);
         if (mounted.current) onChange([...items, ...result]);
       } catch (error) {
         if (!mounted.current) return;
@@ -266,7 +268,7 @@ export default function AttachmentPicker({
         }
       }
     },
-    [disabled, items, limits, onBusyChange, onChange, onFailure],
+    [disabled, items, limits, onBusyChange, onChange, onFailure, uploadFiles],
   );
   useEffect(() => {
     const target = pasteTarget?.current;

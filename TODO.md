@@ -8,6 +8,8 @@ The owner prioritized mobile reading space and model search ahead of the remaini
 
 ## External verification prerequisites
 
+- [ ] Implement and deploy memory-only temporary chats with attachments, lifecycle cleanup, minimal durable accounting and normal-chat regression coverage.
+
 - [ ] Verify physical macOS/Windows screenshot capture and paste, and Safari/Firefox clipboard formats. Chromium native keyboard paste is verified and clipboard input is deployed as version 23; physical platform/browser checks remain separate.
 
 
